@@ -54,3 +54,33 @@ python Shelf_Reconstruction/phase7f_comparison.py
 
 # 16. Phase 7G: End-to-End Experiment B (ML vs Ground Truth)
 python Shelf_Reconstruction/phase7g_experiment_b.py
+
+# =========================================================
+# Phase 8: PostgreSQL Database & Backend
+# =========================================================
+python -c "from pydantic_settings import BaseSettings; print('PYDANTIC SETTINGS OK')"
+
+docker-compose up -d
+
+source venv/bin/activate
+
+cd backend
+
+python -c "from backend.app.core.config import settings; print(settings.DATABASE_URL)"
+python -c "from backend.app.models import *; print('MODEL IMPORT OK')"
+
+alembic current
+
+alembic revision --autogenerate -m "Init Schema Phase 8"
+
+# INSPECT GENERATED MIGRATION
+
+alembic upgrade head
+
+# CREATE INITIAL ORGANIZATION
+
+# cd ..
+
+# export SEED_ORGANIZATION_ID="<REAL-ORGANIZATION-UUID>"
+
+# python backend/scripts/seed_phase7.py

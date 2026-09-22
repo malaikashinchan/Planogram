@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: planogram_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: Malaika
+      POSTGRES_PASSWORD: Malmi1901
+      POSTGRES_DB: planogram_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
