@@ -1,0 +1,49 @@
+{
+  "planogram_id": "P001",
+  "version": 1,
+  "store_id": "STORE_001",
+  "shelves": [
+    {
+      "shelf_id": 1,
+      "products": [
+        {
+          "position": 1,
+          "sku_id": "SKU_001"
+        },
+        {
+          "position": 2,
+          "sku_id": "SKU_001"
+        },
+        {
+          "position": 3,
+          "sku_id": "SKU_002"
+        },
+        {
+          "position": 4,
+          "sku_id": "SKU_004"
+        }
+      ]
+    },
+    {
+      "shelf_id": 2,
+      "products": [
+        {
+          "position": 1,
+          "sku_id": "SKU_003"
+        },
+        {
+          "position": 2,
+          "sku_id": "SKU_003"
+        },
+        {
+          "position": 3,
+          "sku_id": "SKU_007"
+        },
+        {
+          "position": 4,
+          "sku_id": "SKU_008"
+        }
+      ]
+    }
+  ]
+}

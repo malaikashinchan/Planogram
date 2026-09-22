@@ -1,0 +1,5 @@
+planogram_id,version,store_id,shelf_id,position,sku_id
+P006,1,STORE_001,1,1,SKU_001
+P006,1,STORE_001,1,2,SKU_002
+P006,1,STORE_001,2,1,SKU_003
+P006,1,STORE_001,2,2,SKU_004

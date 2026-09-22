@@ -1,0 +1,28 @@
+{
+  "planogram_id": "P004",
+  "version": 1,
+  "store_id": "STORE_001",
+  "shelves": [
+    {
+      "shelf_id": 1,
+      "products": [
+        {
+          "position": 1,
+          "sku_id": "SKU_001"
+        },
+        {
+          "position": 2,
+          "sku_id": "SKU_002"
+        },
+        {
+          "position": 3,
+          "sku_id": "SKU_001"
+        },
+        {
+          "position": 4,
+          "sku_id": "SKU_002"
+        }
+      ]
+    }
+  ]
+}
