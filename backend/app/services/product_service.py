@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import io
+import pandas as pd
 from backend.app.models import Product, ProductStatus
 
 
@@ -133,3 +135,60 @@ def update_product_status(
     db.commit()
     db.refresh(product)
     return product
+
+
+def ingest_product_catalogue(
+    db: Session,
+    organization_id: UUID,
+    upload_file,
+) -> dict:
+    """
+    Parse a CSV file and bulk upsert products.
+    """
+    content = upload_file.file.read()
+    try:
+        df = pd.read_csv(io.BytesIO(content))
+    except Exception as e:
+        raise ValueError(f"Failed to parse CSV: {e}")
+
+    # Validate columns
+    required_cols = {"sku_id", "product_name", "brand", "category"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing required columns in CSV: {missing}")
+
+    created = 0
+    updated = 0
+
+    for _, row in df.iterrows():
+        sku = str(row["sku_id"]).strip()
+        name = str(row["product_name"]).strip()
+        brand = str(row["brand"]).strip()
+        category = str(row["category"]).strip()
+        
+        product = db.scalar(
+            select(Product).where(
+                Product.sku_code == sku,
+                Product.organization_id == organization_id,
+            )
+        )
+
+        if product:
+            product.name = name
+            product.brand = brand
+            product.category = category
+            updated += 1
+        else:
+            new_prod = Product(
+                organization_id=organization_id,
+                sku_code=sku,
+                name=name,
+                brand=brand,
+                category=category,
+                status=ProductStatus.ACTIVE,
+            )
+            db.add(new_prod)
+            created += 1
+
+    db.commit()
+    return {"created": created, "updated": updated}

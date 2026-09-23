@@ -238,3 +238,93 @@ def create_version(
     db.refresh(version)
 
     return version
+
+
+def ingest_planogram(
+    db: Session,
+    organization_id: UUID,
+    user_id: UUID,
+    upload_file,
+    store_uuid: UUID | None = None,
+) -> PlanogramVersion:
+    from backend.app.utils.planogram_parser import PlanogramParser
+    from backend.app.utils.planogram_validator import PlanogramValidator
+
+    # 1. Parse and validate canonical data
+    canonical_data = PlanogramParser.parse_upload(upload_file)
+    PlanogramValidator.validate_canonical(canonical_data)
+
+    code = canonical_data["planogram_code"]
+    store_code = canonical_data.get("store_id")
+
+    # 2. Resolve store UUID if provided as a string code (e.g. "STORE_001") and not explicitly passed
+    if not store_uuid and store_code:
+        store = db.scalar(
+            select(Store).where(Store.code == store_code, Store.organization_id == organization_id)
+        )
+        if not store:
+            raise ValueError(f"Store code '{store_code}' not found in organization.")
+        store_uuid = store.id
+
+    # 3. Find or Create Planogram
+    planogram = db.scalar(
+        select(Planogram).where(Planogram.code == code, Planogram.organization_id == organization_id)
+    )
+    if not planogram:
+        planogram = create_planogram(
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+            code=code,
+            name=f"Planogram {code}",
+            store_id=store_uuid,
+        )
+
+    # 4. Resolve SKU codes to Product UUIDs and build positions list
+    # Collect all unique SKU string codes from the upload
+    uploaded_skus = set()
+    for shelf in canonical_data["shelves"]:
+        for product in shelf["products"]:
+            uploaded_skus.add(product["sku_id"])
+
+    # Fetch mapping of sku -> product.id
+    db_products = list(
+        db.scalars(
+            select(Product).where(
+                Product.sku_code.in_(uploaded_skus),
+                Product.organization_id == organization_id,
+            )
+        ).all()
+    )
+    sku_to_uuid = {p.sku_code: p.id for p in db_products}
+
+    # Verify all SKUs exist
+    missing_skus = uploaded_skus - set(sku_to_uuid.keys())
+    if missing_skus:
+        raise ValueError(f"Products not found in your organization: {sorted(list(missing_skus))}")
+
+    # Build the flat list of position dicts expected by create_version
+    positions = []
+    for shelf in canonical_data["shelves"]:
+        for product in shelf["products"]:
+            positions.append({
+                "shelf_id": shelf["shelf_id"],
+                "position": product["position"],
+                "product_id": sku_to_uuid[product["sku_id"]],
+            })
+
+    # 5. Create version and positions using the existing validated method
+    version = create_version(
+        db=db,
+        planogram_id=planogram.id,
+        organization_id=organization_id,
+        user_id=user_id,
+        positions=positions,
+    )
+
+    # 6. Mark as PUBLISHED instantly (simplified workflow)
+    version.status = PlanogramVersionStatus.PUBLISHED
+    db.commit()
+    db.refresh(version)
+
+    return version

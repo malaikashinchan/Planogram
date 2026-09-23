@@ -21,6 +21,11 @@ class ViolationSummary(BaseModel):
     facing_mismatch: int = 0
 
 
+class JobResponse(BaseModel):
+    status: str
+    error_message: str | None = None
+
+
 class AuditResponse(BaseModel):
     id: UUID
     organization_id: UUID
@@ -34,5 +39,6 @@ class AuditResponse(BaseModel):
 
 
 class AuditDetailResponse(AuditResponse):
+    job: JobResponse | None = None
     compliance: ComplianceResponse | None = None
     violations: ViolationSummary | None = None

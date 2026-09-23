@@ -11,7 +11,7 @@ GET  /planograms/{planogram_id}/versions/{version_id}         — Get specific v
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, File, UploadFile, Form
 from sqlalchemy.orm import Session
 
 from backend.app.auth.dependencies import get_current_user, require_roles
@@ -112,6 +112,31 @@ def create_planogram(
         )
 
     return _planogram_response(planogram)
+
+
+@router.post("/upload", response_model=PlanogramVersionResponse, status_code=status.HTTP_201_CREATED)
+def upload_planogram(
+    store_id: UUID | None = Form(None),
+    file: UploadFile = File(...),
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+    db: Session = Depends(get_db),
+):
+    try:
+        version = planogram_service.ingest_planogram(
+            db,
+            current_user.organization_id,
+            current_user.id,
+            file,
+            store_uuid=store_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    positions = planogram_service.get_positions_for_version(db, version.id)
+    return _version_response(version, positions)
 
 
 @router.get("/{planogram_id}", response_model=PlanogramResponse)

@@ -14,4 +14,7 @@ pydantic-settings
 pwdlib[argon2]
 PyJWT
 email-validator
-
+boto3
+celery
+redis
+python-multipart

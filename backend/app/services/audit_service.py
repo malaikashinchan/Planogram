@@ -45,6 +45,19 @@ def get_audit(
     )
 
 
+def get_processing_job(
+    db: Session,
+    audit_id: UUID,
+) -> ProcessingJob | None:
+    """Get the processing job associated with an audit."""
+    from backend.app.models import ProcessingJob
+    return db.scalar(
+        select(ProcessingJob).where(
+            ProcessingJob.audit_id == audit_id,
+        )
+    )
+
+
 def get_compliance_result(
     db: Session,
     audit_id: UUID,
@@ -91,3 +104,78 @@ def get_violation_summary(
             summary["facing_mismatch"] += 1
 
     return summary
+
+
+def create_audit(
+    db: Session,
+    organization_id: UUID,
+    employee_id: UUID,
+    store_id: UUID,
+    planogram_version_id: UUID,
+    image_file_obj,
+    image_filename: str,
+    image_content_type: str,
+    image_size: int,
+) -> tuple[ShelfAudit, ProcessingJob]:
+    from backend.app.models import Store, PlanogramVersion, Planogram, AuditImage, ProcessingJob, AuditStatus, JobStatus
+    from backend.app.services.storage_service import storage
+    import uuid
+
+    # 1. Verify Store
+    store = db.scalar(
+        select(Store).where(Store.id == store_id, Store.organization_id == organization_id)
+    )
+    if not store:
+        raise ValueError("Store not found in organization.")
+
+    # 2. Verify PlanogramVersion
+    pv = db.scalar(
+        select(PlanogramVersion)
+        .join(Planogram)
+        .where(
+            PlanogramVersion.id == planogram_version_id,
+            Planogram.organization_id == organization_id,
+        )
+    )
+    if not pv:
+        raise ValueError("Planogram version not found in organization.")
+
+    # 3. Create Audit
+    audit = ShelfAudit(
+        organization_id=organization_id,
+        store_id=store_id,
+        planogram_version_id=planogram_version_id,
+        employee_id=employee_id,
+        status=AuditStatus.PROCESSING,
+    )
+    db.add(audit)
+    db.flush()
+
+    # 4. Upload Image
+    storage_key = f"organizations/{organization_id}/audits/{audit.id}/{uuid.uuid4()}.jpg"
+    success = storage.upload(image_file_obj, storage_key, image_content_type)
+    if not success:
+        db.rollback()
+        raise ValueError("Failed to upload image to storage.")
+
+    # 5. Create AuditImage
+    audit_image = AuditImage(
+        audit_id=audit.id,
+        storage_key=storage_key,
+        mime_type=image_content_type,
+        file_size=image_size,
+    )
+    db.add(audit_image)
+    
+    # 6. Create ProcessingJob
+    job = ProcessingJob(
+        audit_id=audit.id,
+        status=JobStatus.QUEUED,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(audit)
+    db.refresh(job)
+
+    return audit, job
+

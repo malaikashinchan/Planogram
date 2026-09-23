@@ -10,7 +10,7 @@ PATCH /products/{product_id}/status      — Activate/deactivate (ADMIN, MANAGER
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from backend.app.auth.dependencies import get_current_user, require_roles
@@ -150,3 +150,24 @@ def update_product_status(
         )
 
     return _to_response(product)
+
+
+@router.post("/upload", response_model=dict, status_code=status.HTTP_201_CREATED)
+def upload_product_catalogue(
+    file: UploadFile = File(...),
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = product_service.ingest_product_catalogue(
+            db,
+            current_user.organization_id,
+            file,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return result

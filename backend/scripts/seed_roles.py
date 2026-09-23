@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+
 from sqlalchemy import select
 
 from backend.app.core.database import SessionLocal
