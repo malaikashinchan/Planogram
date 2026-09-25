@@ -47,13 +47,17 @@ def get_product(
 def create_product(
     db: Session,
     organization_id: UUID,
-    sku_code: str,
+    sku_code: str | None,
     name: str,
     brand: str | None = None,
     category: str | None = None,
     barcode: str | None = None,
 ) -> Product:
     """Create a new product. Raises ValueError on duplicate SKU or barcode."""
+    if not sku_code:
+        import uuid
+        sku_code = f"SKU_{str(uuid.uuid4())[:8].upper()}"
+
     product = Product(
         organization_id=organization_id,
         sku_code=sku_code.strip(),
@@ -143,28 +147,45 @@ def ingest_product_catalogue(
     upload_file,
 ) -> dict:
     """
-    Parse a CSV file and bulk upsert products.
+    Parse a CSV, XLS, XLSX, or JSON file and bulk upsert products.
+    Dynamically maps columns to standard names.
     """
+    filename = upload_file.filename.lower() if upload_file.filename else ""
     content = upload_file.file.read()
+    
     try:
-        df = pd.read_csv(io.BytesIO(content))
+        if filename.endswith(".json"):
+            df = pd.read_json(io.BytesIO(content))
+        elif filename.endswith((".xls", ".xlsx")):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
     except Exception as e:
-        raise ValueError(f"Failed to parse CSV: {e}")
+        raise ValueError(f"Failed to parse file: {e}")
 
-    # Validate columns
-    required_cols = {"sku_id", "product_name", "brand", "category"}
-    missing = required_cols - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing required columns in CSV: {missing}")
+    # Check minimum columns
+    if len(df.columns) < 2:
+        raise ValueError("File must contain at least 2 columns (SKU and Name).")
+
+    # Positional Mapping (Index-based)
+    new_cols = list(df.columns)
+    new_cols[0] = "sku_code"
+    new_cols[1] = "name"
+    if len(new_cols) > 2:
+        new_cols[2] = "brand"
+    if len(new_cols) > 3:
+        new_cols[3] = "category"
+        
+    df.columns = new_cols
 
     created = 0
     updated = 0
 
     for _, row in df.iterrows():
-        sku = str(row["sku_id"]).strip()
-        name = str(row["product_name"]).strip()
-        brand = str(row["brand"]).strip()
-        category = str(row["category"]).strip()
+        sku = str(row["sku_code"]).strip()
+        name = str(row["name"]).strip()
+        brand = str(row.get("brand", "")).strip() if "brand" in row and pd.notna(row["brand"]) else None
+        category = str(row.get("category", "")).strip() if "category" in row and pd.notna(row["category"]) else None
         
         product = db.scalar(
             select(Product).where(
@@ -192,3 +213,41 @@ def ingest_product_catalogue(
 
     db.commit()
     return {"created": created, "updated": updated}
+
+
+def preview_product_catalogue(upload_file) -> dict:
+    """
+    Parse a file and return the first 5 rows with mapped column names.
+    """
+    filename = upload_file.filename.lower() if upload_file.filename else ""
+    content = upload_file.file.read()
+    
+    try:
+        if filename.endswith(".json"):
+            df = pd.read_json(io.BytesIO(content))
+        elif filename.endswith((".xls", ".xlsx")):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            df = pd.read_csv(io.BytesIO(content))
+    except Exception as e:
+        raise ValueError(f"Failed to parse file: {e}")
+
+    if len(df.columns) < 2:
+        raise ValueError("File must contain at least 2 columns (SKU and Name).")
+
+    new_cols = list(df.columns)
+    new_cols[0] = "sku_code"
+    new_cols[1] = "name"
+    if len(new_cols) > 2:
+        new_cols[2] = "brand"
+    if len(new_cols) > 3:
+        new_cols[3] = "category"
+        
+    df.columns = new_cols
+
+    # Convert first 5 rows to dict and ensure NaN becomes None
+    preview_df = df.head(5).replace({pd.NA: None, float('nan'): None})
+    return {
+        "totalRows": len(df),
+        "preview": preview_df.to_dict('records')
+    }

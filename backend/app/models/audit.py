@@ -9,6 +9,7 @@ class AuditStatus(str, enum.Enum):
     UPLOADED = "UPLOADED"
     QUEUED = "QUEUED"
     PROCESSING = "PROCESSING"
+    PENDING_REVIEW = "PENDING_REVIEW"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 

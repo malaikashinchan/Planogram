@@ -1,0 +1,70 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.container {
+  position: relative;
+  width: 100%;
+}
+
+.input {
+  padding: 0.5rem;
+  padding-right: 2.5rem;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--input-bg, #fff);
+  color: var(--text-color, #000);
+}
+
+.input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0,123,255,.25);
+}
+
+.toggleBtn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-muted, #6c757d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggleBtn:hover {
+  color: var(--text-color, #212529);
+}
+
+.checklist {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: var(--surface-color, #fff);
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.checklistItem {
+  display: flex;
+  align-items: center;
+}
+
+.errorMsg {
+  color: red;
+  font-size: 0.8rem;
+  font-style: italic;
+  margin-top: 0.25rem;
+}

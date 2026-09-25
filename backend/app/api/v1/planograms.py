@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.auth.dependencies import get_current_user, require_roles
 from backend.app.core.database import get_db
-from backend.app.models import User, Planogram, PlanogramVersion
+from backend.app.models import User, Planogram, PlanogramVersion, Store
 from backend.app.schemas.planogram import (
     PlanogramCreate,
     PlanogramResponse,
@@ -30,7 +30,7 @@ from backend.app.services import planogram_service
 router = APIRouter(prefix="/planograms", tags=["Planograms"])
 
 
-def _planogram_response(p: Planogram) -> PlanogramResponse:
+def _planogram_response(p: Planogram, positions_count: int = 0, store: dict | None = None) -> PlanogramResponse:
     return PlanogramResponse(
         id=p.id,
         organization_id=p.organization_id,
@@ -41,6 +41,8 @@ def _planogram_response(p: Planogram) -> PlanogramResponse:
         created_by=p.created_by,
         created_at=p.created_at,
         updated_at=p.updated_at,
+        positions_count=positions_count,
+        store=store,
     )
 
 
@@ -79,15 +81,35 @@ def _version_response(
 
 @router.get("/", response_model=list[PlanogramResponse])
 def list_planograms(
+    store_id: UUID | None = Query(None, description="Filter by store ID"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     planograms = planogram_service.get_planograms(
-        db, current_user.organization_id, skip, limit
+        db, current_user.organization_id, skip, limit, store_id
     )
-    return [_planogram_response(p) for p in planograms]
+    
+    result = []
+    for p in planograms:
+        # Get active or latest version
+        versions = planogram_service.get_versions(db, p.id, current_user.organization_id)
+        pos_count = 0
+        if versions:
+            latest_version = versions[-1] # Usually the most recently created or published
+            positions = planogram_service.get_positions_for_version(db, latest_version.id)
+            pos_count = len(positions)
+            
+        store_info = None
+        if p.store_id:
+            store = db.query(Store).filter(Store.id == p.store_id).first()
+            if store:
+                store_info = {"id": str(store.id), "name": store.name}
+            
+        result.append(_planogram_response(p, pos_count, store_info))
+        
+    return result
 
 
 @router.post("/", response_model=PlanogramResponse, status_code=status.HTTP_201_CREATED)
@@ -114,8 +136,26 @@ def create_planogram(
     return _planogram_response(planogram)
 
 
+@router.delete("/{planogram_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_planogram(
+    planogram_id: UUID,
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+    db: Session = Depends(get_db),
+):
+    try:
+        planogram_service.delete_planogram(
+            db, planogram_id, current_user.organization_id
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+
+
 @router.post("/upload", response_model=PlanogramVersionResponse, status_code=status.HTTP_201_CREATED)
 def upload_planogram(
+    name: str | None = Form(None),
     store_id: UUID | None = Form(None),
     file: UploadFile = File(...),
     current_user: User = require_roles("ADMIN", "MANAGER"),
@@ -128,6 +168,7 @@ def upload_planogram(
             current_user.id,
             file,
             store_uuid=store_id,
+            name=name,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -155,7 +196,20 @@ def get_planogram(
             detail="Planogram not found.",
         )
 
-    return _planogram_response(planogram)
+    versions = planogram_service.get_versions(db, planogram.id, current_user.organization_id)
+    pos_count = 0
+    if versions:
+        latest_version = versions[-1]
+        positions = planogram_service.get_positions_for_version(db, latest_version.id)
+        pos_count = len(positions)
+
+    store_info = None
+    if planogram.store_id:
+        store = db.query(Store).filter(Store.id == planogram.store_id).first()
+        if store:
+            store_info = {"id": str(store.id), "name": store.name}
+
+    return _planogram_response(planogram, pos_count, store_info)
 
 
 # ── Version Endpoints ──

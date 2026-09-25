@@ -52,6 +52,11 @@ class Detection(Base, TimestampMixin):
     
     crop_storage_key = Column(String, nullable=True)
 
+class RecognitionStatus(str, enum.Enum):
+    AUTO_ACCEPTED = "AUTO_ACCEPTED"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    HUMAN_CORRECTED = "HUMAN_CORRECTED"
+
 class Recognition(Base, TimestampMixin):
     __tablename__ = "recognitions"
 
@@ -61,6 +66,8 @@ class Recognition(Base, TimestampMixin):
     predicted_product_id = Column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
     similarity = Column(Float, nullable=False)
     margin = Column(Float, nullable=True)
+    
+    status = Column(Enum(RecognitionStatus), nullable=False, default=RecognitionStatus.AUTO_ACCEPTED)
     
     model_version_id = Column(UUID(as_uuid=True), ForeignKey("model_versions.id", ondelete="SET NULL"), nullable=True)
 

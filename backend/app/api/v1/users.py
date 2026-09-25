@@ -21,6 +21,39 @@ from backend.app.services import user_service
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+from backend.app.schemas.user import UserCreateRequest
+
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def create_user_endpoint(
+    data: UserCreateRequest,
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+    db: Session = Depends(get_db),
+):
+    try:
+        user = user_service.create_user(
+            db, 
+            organization_id=current_user.organization_id,
+            email=data.email,
+            first_name=data.first_name,
+            last_name=data.last_name,
+            role_name=data.role
+        )
+        
+        # Automatically generate a password reset token and send invite email
+        from backend.app.auth.service import create_password_reset_token
+        from backend.app.auth.email import send_password_reset_email
+        
+        raw_token = create_password_reset_token(db, user.email)
+        if raw_token:
+            send_password_reset_email(user.email, raw_token)
+        
+        return _to_response(user)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
 
 def _to_response(user: User) -> UserResponse:
     return UserResponse(

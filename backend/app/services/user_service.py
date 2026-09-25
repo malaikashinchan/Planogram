@@ -86,3 +86,47 @@ def update_user_status(
     db.commit()
     db.refresh(user)
     return user
+
+def create_user(
+    db: Session,
+    organization_id: UUID,
+    email: str,
+    first_name: str,
+    last_name: str,
+    role_name: str
+) -> User:
+    from backend.app.core.security import hash_password
+    import uuid
+    import secrets
+    
+    normalized_email = email.lower().strip()
+    
+    existing_user = db.scalar(
+        select(User).where(User.email == normalized_email)
+    )
+    if existing_user:
+        raise ValueError("An account with this email already exists.")
+        
+    role = db.scalar(select(Role).where(Role.name == role_name.upper()))
+    if not role:
+        raise ValueError(f"Role '{role_name}' does not exist.")
+
+    # Temporary password that the user must reset via forgot-password/invite flow
+    temp_password = secrets.token_urlsafe(12)
+    
+    user = User(
+        id=uuid.uuid4(),
+        organization_id=organization_id,
+        email=normalized_email,
+        password_hash=hash_password(temp_password),
+        first_name=first_name.strip(),
+        last_name=last_name.strip(),
+        status=UserStatus.ACTIVE,
+        email_verified_at=None,
+    )
+    user.roles.append(role)
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user

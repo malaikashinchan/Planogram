@@ -18,6 +18,8 @@ from backend.app.schemas.audit import (
     AuditResponse,
     ComplianceResponse,
     ViolationSummary,
+    DetailedViolation,
+    AuditReviewResponse
 )
 from backend.app.services import audit_service
 from backend.app.workers.tasks import process_audit_task
@@ -29,7 +31,7 @@ router = APIRouter(prefix="/audits", tags=["Audits"])
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
 def upload_audit(
     store_id: UUID = Form(...),
-    planogram_version_id: UUID = Form(...),
+    planogram_id: UUID = Form(...),
     image: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -47,7 +49,7 @@ def upload_audit(
             organization_id=current_user.organization_id,
             employee_id=current_user.id,
             store_id=store_id,
-            planogram_version_id=planogram_version_id,
+            planogram_id=planogram_id,
             image_file_obj=image.file,
             image_filename=image.filename,
             image_content_type=image.content_type,
@@ -77,21 +79,37 @@ def list_audits(
         db, current_user.organization_id, skip, limit
     )
 
-    return [
-        AuditResponse(
-            id=a.id,
-            organization_id=a.organization_id,
-            store_id=a.store_id,
-            planogram_version_id=a.planogram_version_id,
-            employee_id=a.employee_id,
-            status=a.status.value,
-            started_at=a.started_at,
-            completed_at=a.completed_at,
-            created_at=a.created_at,
-        )
-        for a in audits
-    ]
+    from backend.app.models import ComplianceResult, Store, PlanogramVersion, Planogram
+    
+    result = []
+    for a in audits:
+        comp = db.query(ComplianceResult).filter(ComplianceResult.audit_id == a.id).first()
+        score = None
+        if comp is not None:
+            # We will use the availability_rate as the overall compliance score to be consistent with AuditResult.jsx
+            score = comp.availability_rate
 
+        store_db = db.query(Store).filter(Store.id == a.store_id).first()
+        pv_db = db.query(PlanogramVersion).filter(PlanogramVersion.id == a.planogram_version_id).first()
+        planogram_db = db.query(Planogram).filter(Planogram.id == pv_db.planogram_id).first() if pv_db else None
+
+        result.append(
+            AuditResponse(
+                id=a.id,
+                organization_id=a.organization_id,
+                store_id=a.store_id,
+                planogram_version_id=a.planogram_version_id,
+                employee_id=a.employee_id,
+                status=a.status.value,
+                started_at=a.started_at,
+                completed_at=a.completed_at,
+                created_at=a.created_at,
+                compliance_score=score,
+                store={"id": store_db.id, "name": store_db.name} if store_db else None,
+                planogram={"id": planogram_db.id, "name": planogram_db.name} if planogram_db else None
+            )
+        )
+    return result
 
 @router.get("/{audit_id}", response_model=AuditDetailResponse)
 def get_audit(
@@ -132,6 +150,14 @@ def get_audit(
     if any(v > 0 for v in violation_data.values()):
         violations = ViolationSummary(**violation_data)
 
+    # Fetch Audit Image for presigned URL
+    image_url = None
+    from backend.app.models import AuditImage
+    from backend.app.services.storage_service import storage
+    audit_img = db.query(AuditImage).filter(AuditImage.audit_id == audit.id).first()
+    if audit_img and audit_img.storage_key:
+        image_url = storage.generate_url(audit_img.storage_key)
+
     return AuditDetailResponse(
         id=audit.id,
         organization_id=audit.organization_id,
@@ -142,7 +168,32 @@ def get_audit(
         started_at=audit.started_at,
         completed_at=audit.completed_at,
         created_at=audit.created_at,
+        image_url=image_url,
         job=job_resp,
         compliance=compliance,
         violations=violations,
     )
+
+@router.get("/{audit_id}/violations", response_model=list[DetailedViolation])
+def get_audit_violations(
+    audit_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    audit = audit_service.get_audit(db, audit_id, current_user.organization_id)
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit not found")
+        
+    return audit_service.get_detailed_violations(db, audit_id)
+
+@router.get("/{audit_id}/reviews", response_model=list[AuditReviewResponse])
+def get_audit_reviews(
+    audit_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    audit = audit_service.get_audit(db, audit_id, current_user.organization_id)
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit not found")
+        
+    return audit_service.get_audit_reviews(db, audit_id)

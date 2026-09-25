@@ -1,0 +1,152 @@
+.wizardContainer {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 0 1rem;
+}
+
+.stepIndicator {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.stepIndicator.active {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.stepLine {
+  flex: 1;
+  height: 2px;
+  background: var(--border-color);
+  margin: 0 0.5rem;
+}
+
+.wizardCard {
+  background: var(--surface-color);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: var(--card-shadow);
+}
+
+.stepContent h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-color);
+}
+
+.icon {
+  color: var(--primary-color);
+}
+
+.stepFooter {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.imageUploader {
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  background: var(--background-color);
+}
+
+.uploadPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.uploadPrompt:hover {
+  color: var(--primary-color);
+}
+
+.previewContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.previewImage {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.changeImageBtn {
+  color: var(--primary-color);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.processingContent {
+  text-align: center;
+  padding: 1rem;
+}
+
+.processingSpinner {
+  margin-bottom: 1.5rem;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinningIcon {
+  animation: spin 2s linear infinite;
+}
+
+.statusSteps {
+  text-align: left;
+  max-width: 250px;
+  margin: 2rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.statusStep {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.statusPending {
+  color: var(--text-light);
+}
+
+.statusDone {
+  color: var(--success-color);
+  font-weight: bold;
+}
+
+.processingNote {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-top: 2rem;
+}

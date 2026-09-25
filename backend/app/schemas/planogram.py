@@ -26,6 +26,8 @@ class PlanogramResponse(BaseModel):
     created_by: UUID | None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    positions_count: int = 0
+    store: dict | None = None
 
 
 # ── Planogram Version ──

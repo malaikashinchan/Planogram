@@ -14,6 +14,8 @@ from backend.app.api.v1.stores import router as stores_router
 from backend.app.api.v1.products import router as products_router
 from backend.app.api.v1.planograms import router as planograms_router
 from backend.app.api.v1.audits import router as audits_router
+from backend.app.api.v1.reviews import router as reviews_router
+from backend.app.api.v1.dashboard import router as dashboard_router
 
 api_router = APIRouter()
 
@@ -24,3 +26,5 @@ api_router.include_router(stores_router)
 api_router.include_router(products_router)
 api_router.include_router(planograms_router)
 api_router.include_router(audits_router)
+api_router.include_router(reviews_router, prefix="/reviews", tags=["reviews"])
+api_router.include_router(dashboard_router)

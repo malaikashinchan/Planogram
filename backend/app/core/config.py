@@ -38,11 +38,20 @@ class Settings(BaseSettings):
     REFERENCE_LABELS_PATH: str = str(PROJECT_ROOT / "outputs" / "embeddings" / "reference_labels.json")
     YOLO_CLUSTER_EPS_RATIO: float = 0.4
 
+    # Human-in-the-Loop & Retraining (Phase 12)
+    RECOGNITION_REVIEW_THRESHOLD: float = 0.40
+    MIN_NEW_TRAINING_SAMPLES: int = 20
+    
+    # Retraining Hyperparameters
+    TRAINING_EPOCHS: int = 5
+    TRAINING_LEARNING_RATE: float = 0.0001
+    TRAINING_TRIPLET_MARGIN: float = 1.0
+    TRAINING_EVALUATION_LOSS_THRESHOLD: float = 0.5
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
-
 
 settings = Settings()

@@ -111,7 +111,7 @@ def create_audit(
     organization_id: UUID,
     employee_id: UUID,
     store_id: UUID,
-    planogram_version_id: UUID,
+    planogram_id: UUID,
     image_file_obj,
     image_filename: str,
     image_content_type: str,
@@ -128,23 +128,24 @@ def create_audit(
     if not store:
         raise ValueError("Store not found in organization.")
 
-    # 2. Verify PlanogramVersion
+    # 2. Get latest PlanogramVersion for the Planogram
     pv = db.scalar(
         select(PlanogramVersion)
         .join(Planogram)
         .where(
-            PlanogramVersion.id == planogram_version_id,
+            Planogram.id == planogram_id,
             Planogram.organization_id == organization_id,
         )
+        .order_by(PlanogramVersion.created_at.desc())
     )
     if not pv:
-        raise ValueError("Planogram version not found in organization.")
+        raise ValueError("Planogram has no active versions.")
 
     # 3. Create Audit
     audit = ShelfAudit(
         organization_id=organization_id,
         store_id=store_id,
-        planogram_version_id=planogram_version_id,
+        planogram_version_id=pv.id,
         employee_id=employee_id,
         status=AuditStatus.PROCESSING,
     )
@@ -178,4 +179,92 @@ def create_audit(
     db.refresh(job)
 
     return audit, job
+
+def get_detailed_violations(db: Session, audit_id: UUID) -> list[dict]:
+    """Get detailed violations with product SKUs."""
+    from backend.app.models import Product
+    from sqlalchemy.orm import aliased
+    
+    ExpectedProduct = aliased(Product)
+    ActualProduct = aliased(Product)
+    
+    query = (
+        select(
+            ComplianceViolation.id,
+            ComplianceViolation.shelf_id,
+            ComplianceViolation.position,
+            ComplianceViolation.violation_type,
+            ExpectedProduct.sku_code.label("expected_sku"),
+            ExpectedProduct.name.label("expected_name"),
+            ActualProduct.sku_code.label("actual_sku"),
+            ActualProduct.name.label("actual_name"),
+        )
+        .outerjoin(ExpectedProduct, ComplianceViolation.expected_product_id == ExpectedProduct.id)
+        .outerjoin(ActualProduct, ComplianceViolation.actual_product_id == ActualProduct.id)
+        .where(ComplianceViolation.audit_id == audit_id)
+    )
+    
+    results = db.execute(query).all()
+    
+    return [
+        {
+            "id": r.id,
+            "shelf_id": str(r.shelf_id),
+            "position": r.position,
+            "violation_type": r.violation_type.value,
+            "expected_sku": r.expected_sku,
+            "expected_name": r.expected_name,
+            "actual_sku": r.actual_sku,
+            "actual_name": r.actual_name
+        }
+        for r in results
+    ]
+
+def get_audit_reviews(db: Session, audit_id: UUID) -> list[dict]:
+    """Get all reviews for an audit."""
+    from backend.app.models.review import HumanReview
+    from backend.app.models.product import Product
+    from backend.app.services.storage_service import storage
+    from sqlalchemy.orm import aliased
+    
+    PredictedProduct = aliased(Product)
+    CorrectedProduct = aliased(Product)
+    
+    query = (
+        select(
+            HumanReview.id,
+            HumanReview.recognition_id,
+            HumanReview.crop_storage_key,
+            PredictedProduct.sku_code.label("predicted_sku"),
+            PredictedProduct.name.label("predicted_name"),
+            HumanReview.predicted_similarity,
+            HumanReview.predicted_margin,
+            CorrectedProduct.sku_code.label("corrected_sku"),
+            CorrectedProduct.name.label("corrected_name"),
+            HumanReview.status,
+            HumanReview.reviewed_at
+        )
+        .outerjoin(PredictedProduct, HumanReview.predicted_product_id == PredictedProduct.id)
+        .outerjoin(CorrectedProduct, HumanReview.corrected_product_id == CorrectedProduct.id)
+        .where(HumanReview.audit_id == audit_id)
+    )
+    
+    results = db.execute(query).all()
+    
+    return [
+        {
+            "review_id": r.id,
+            "recognition_id": r.recognition_id,
+            "crop_url": storage.generate_url(r.crop_storage_key) if r.crop_storage_key else "",
+            "predicted_sku": r.predicted_sku,
+            "predicted_name": r.predicted_name,
+            "similarity": r.predicted_similarity,
+            "margin": r.predicted_margin,
+            "corrected_sku": r.corrected_sku,
+            "corrected_name": r.corrected_name,
+            "status": r.status.value,
+            "reviewed_at": r.reviewed_at
+        }
+        for r in results
+    ]
 

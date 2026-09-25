@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 
 
 class ProductCreate(BaseModel):
-    sku_code: str = Field(min_length=1, max_length=100)
     name: str = Field(min_length=1, max_length=200)
+    sku_code: str | None = Field(default=None, max_length=100)
     brand: str | None = Field(default=None, max_length=200)
     category: str | None = Field(default=None, max_length=200)
     barcode: str | None = Field(default=None, max_length=100)

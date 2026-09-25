@@ -171,3 +171,18 @@ def upload_product_catalogue(
         )
 
     return result
+
+@router.post("/preview", response_model=dict, status_code=status.HTTP_200_OK)
+def preview_product_catalogue(
+    file: UploadFile = File(...),
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+):
+    try:
+        result = product_service.preview_product_catalogue(file)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return result

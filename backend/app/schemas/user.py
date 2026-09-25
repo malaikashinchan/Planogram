@@ -24,6 +24,11 @@ class UserResponse(BaseModel):
 class UserRoleUpdate(BaseModel):
     role: str = Field(min_length=1, max_length=50)
 
-
 class UserStatusUpdate(BaseModel):
     status: str = Field(pattern="^(ACTIVE|INACTIVE)$")
+
+class UserCreateRequest(BaseModel):
+    email: str
+    first_name: str
+    last_name: str
+    role: str = Field(pattern="^(MANAGER|EMPLOYEE)$")

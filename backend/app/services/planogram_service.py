@@ -32,14 +32,16 @@ def get_planograms(
     organization_id: UUID,
     skip: int = 0,
     limit: int = 50,
+    store_id: UUID | None = None,
 ) -> list[Planogram]:
     """List planograms within the organization."""
+    query = select(Planogram).where(Planogram.organization_id == organization_id)
+    if store_id:
+        query = query.where(Planogram.store_id == store_id)
+        
     return list(
         db.scalars(
-            select(Planogram)
-            .where(Planogram.organization_id == organization_id)
-            .offset(skip)
-            .limit(limit)
+            query.offset(skip).limit(limit)
         ).all()
     )
 
@@ -56,6 +58,23 @@ def get_planogram(
             Planogram.organization_id == organization_id,
         )
     )
+
+
+def delete_planogram(
+    db: Session,
+    planogram_id: UUID,
+    organization_id: UUID,
+) -> None:
+    """Delete a planogram and all its versions."""
+    planogram = get_planogram(db, planogram_id, organization_id)
+    if not planogram:
+        raise ValueError("Planogram not found.")
+    
+    # Must delete versions manually due to RESTRICT foreign key constraint
+    db.query(PlanogramVersion).filter(PlanogramVersion.planogram_id == planogram_id).delete()
+    
+    db.delete(planogram)
+    db.commit()
 
 
 def create_planogram(
@@ -246,6 +265,7 @@ def ingest_planogram(
     user_id: UUID,
     upload_file,
     store_uuid: UUID | None = None,
+    name: str | None = None,
 ) -> PlanogramVersion:
     from backend.app.utils.planogram_parser import PlanogramParser
     from backend.app.utils.planogram_validator import PlanogramValidator
@@ -271,12 +291,13 @@ def ingest_planogram(
         select(Planogram).where(Planogram.code == code, Planogram.organization_id == organization_id)
     )
     if not planogram:
+        planogram_name = name if name and name.strip() else f"Planogram {code}"
         planogram = create_planogram(
             db=db,
             organization_id=organization_id,
             user_id=user_id,
             code=code,
-            name=f"Planogram {code}",
+            name=planogram_name,
             store_id=store_uuid,
         )
 
