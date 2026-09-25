@@ -74,6 +74,13 @@ const AuditResult = () => {
             <p style={{ color: 'var(--text-color)' }}>We could not process this image. Please try capturing the shelf again with better lighting and clearer focus.</p>
             <Button onClick={() => navigate('/employee/audit/new')} style={{ marginTop: '1rem' }}>Capture Again</Button>
           </div>
+        ) : audit.status === 'NEEDS_RETAKE' ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--warning-color)' }}>
+            <AlertTriangle size={48} style={{ marginBottom: '1rem' }} />
+            <h3>Needs Retake</h3>
+            <p style={{ color: 'var(--text-color)' }}>The AI could not detect any products on the shelf. This is usually due to image blurriness, poor lighting, or being too far away. Please retake the photo.</p>
+            <Button onClick={() => navigate('/employee/audit/new')} style={{ marginTop: '1rem' }}>Capture Again</Button>
+          </div>
         ) : (
           <>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>

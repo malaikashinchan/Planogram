@@ -64,6 +64,17 @@ def process_audit_pipeline(audit_id: UUID, job_id: UUID):
         detections = run_yolo_detection(image_bytes)
         print(f"[Job {job_id}] YOLO found {len(detections)} objects in {time.time() - yolo_start:.2f}s")
         
+        if len(detections) == 0:
+            print(f"[Job {job_id}] 0 detections found. Flagging for NEEDS_RETAKE...")
+            audit.status = AuditStatus.NEEDS_RETAKE
+            job.status = JobStatus.COMPLETED
+            from datetime import datetime, timezone
+            now_completed = datetime.now(timezone.utc)
+            job.completed_at = now_completed
+            audit.completed_at = now_completed
+            db.commit()
+            return
+        
         # Incremental Save: Detections
         db_detections = []
         for d in detections:
