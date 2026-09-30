@@ -19,6 +19,11 @@ const userService = {
   updateUserStatus: async (userId, status) => {
     const response = await api.patch(`/users/${userId}/status`, { status });
     return response.data;
+  },
+
+  deleteUser: async (userId) => {
+    const response = await api.delete(`/users/${userId}`);
+    return response.data;
   }
 };
 

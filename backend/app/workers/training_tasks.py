@@ -50,8 +50,10 @@ def launch_training_task(self):
             print("Training is already in progress. Skipping.")
             return
             
+        from backend.app.models.review import StorageStatus
         pending_samples = db.query(MLTrainingSample).filter(
-            MLTrainingSample.status == SampleStatus.PENDING
+            MLTrainingSample.status == SampleStatus.PENDING,
+            MLTrainingSample.storage_status == StorageStatus.AVAILABLE
         ).all()
         
         if len(pending_samples) < settings.MIN_NEW_TRAINING_SAMPLES:
@@ -119,7 +121,7 @@ def launch_training_task(self):
             negatives.append(transform(neg_img))
             
         if not anchors:
-            print("Failed to build triplet dataset (missing S3 images).")
+            print("Failed to build triplet dataset. Cannot train without data.")
             candidate.status = ModelStatus.RETIRED
             db.commit()
             return
@@ -161,6 +163,8 @@ def launch_training_task(self):
         # Update samples
         for s in pending_samples:
             s.status = SampleStatus.USED_FOR_TRAINING
+            
+        loss_val = loss.item()
         
         # 6. Candidate Evaluation
         # We evaluate the candidate against the holdout set (for now, simply checking if loss improved)
@@ -168,7 +172,7 @@ def launch_training_task(self):
         print("Evaluating candidate against holdout set...")
         
         # For this prototype, we'll assume the fine-tuning was successful if loss < threshold
-        passed_evaluation = loss.item() < settings.TRAINING_EVALUATION_LOSS_THRESHOLD
+        passed_evaluation = loss_val < settings.TRAINING_EVALUATION_LOSS_THRESHOLD
         
         if passed_evaluation:
             print(f"Candidate {version_name} passed evaluation! Promoting to ACTIVE.")
@@ -185,7 +189,7 @@ def launch_training_task(self):
             # Update the global symlink or setting so pipeline.py uses it
             # settings.RECOGNIZER_MODEL_PATH = candidate_path (requires restart, or dynamic loading)
         else:
-            print(f"Candidate {version_name} failed evaluation (loss {loss.item():.4f} >= {settings.TRAINING_EVALUATION_LOSS_THRESHOLD}). Discarding.")
+            print(f"Candidate {version_name} failed evaluation (loss {loss_val:.4f} >= {settings.TRAINING_EVALUATION_LOSS_THRESHOLD}). Discarding.")
             candidate.status = ModelStatus.RETIRED
             
         db.commit()

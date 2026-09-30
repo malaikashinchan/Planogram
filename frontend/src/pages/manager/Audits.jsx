@@ -49,7 +49,7 @@ const Audits = () => {
       {audits.length === 0 ? (
         <EmptyState message="No audits have been performed yet." />
       ) : (
-        <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: 'var(--surface-color)', padding: '1.5rem', borderRadius: '8px', boxShadow: 'var(--card-shadow)' }}>
           <Table>
             <thead>
               <tr>

@@ -1,0 +1,138 @@
+.viewerContainer {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: var(--bg-color-alt);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.icon {
+  color: var(--primary-color);
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.emptyText {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.shelvesWrapper {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.shelfRow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.shelfLabel {
+  position: absolute;
+  left: -10px;
+  top: -10px;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+.shelfItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 1rem 0.5rem 0.5rem 0.5rem;
+  min-height: 80px;
+  align-items: flex-end;
+}
+
+.productItem {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  position: relative;
+  transition: transform 0.2s;
+}
+
+.productItem:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-color);
+}
+
+.productColorIndicator {
+  height: 4px;
+  width: 100%;
+  background-color: var(--primary-color);
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.productDetails {
+  display: flex;
+  flex-direction: column;
+}
+
+.productName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.productBrand {
+  font-size: 0.7rem;
+  color: var(--text-light);
+}
+
+.positionBadge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.shelfBoard {
+  height: 12px;
+  background: var(--bg-color-alt);
+  border-radius: 4px;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-top-color: var(--surface-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}

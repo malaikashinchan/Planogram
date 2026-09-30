@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import ManagerLayout from '../layouts/ManagerLayout';
 import EmployeeLayout from '../layouts/EmployeeLayout';
+import LandingPage from '../pages/LandingPage';
 
 // Auth Pages
 import Login from '../pages/auth/Login';
@@ -27,7 +28,7 @@ import AuditResult from '../pages/employee/AuditResult';
 export const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email" element={<VerifyEmail />} />

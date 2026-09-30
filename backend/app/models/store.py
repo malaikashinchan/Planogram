@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, ForeignKey, Enum, Table, UniqueConstraint
+from sqlalchemy import Column, String, ForeignKey, Enum, Table, UniqueConstraint, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
@@ -26,6 +26,11 @@ class Store(Base, TimestampMixin):
     code = Column(String, nullable=False)
     name = Column(String, nullable=False)
     address = Column(String, nullable=True)
+    pincode = Column(String(20), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    landmark = Column(String(300), nullable=True)
+    address_details = Column(String(500), nullable=True)
     
     status = Column(Enum(StoreStatus), default=StoreStatus.ACTIVE, nullable=False)
 

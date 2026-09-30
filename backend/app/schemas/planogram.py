@@ -47,6 +47,7 @@ class PositionResponse(BaseModel):
     shelf_id: int
     position: int
     product_id: UUID
+    product: dict | None = None
 
 
 class PlanogramVersionResponse(BaseModel):

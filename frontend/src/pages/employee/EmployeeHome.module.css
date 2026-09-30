@@ -58,17 +58,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
+  padding: 1.25rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background-color: var(--bg-color-alt);
+  border-radius: 10px;
   transition: all 0.2s;
   text-decoration: none;
   color: var(--text-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .auditCard:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
 
 .auditInfo {

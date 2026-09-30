@@ -93,6 +93,10 @@ Dataset/RPC/
 *.egg-info/
 dist/
 build/
+# Node
+node_modules/
+
+
 
 # =========================================================
 # Logs
@@ -111,6 +115,7 @@ logs/
 htmlcov/
 .tox/
 .nox/
+
 
 # =========================================================
 # Temporary Files
@@ -142,3 +147,6 @@ docker-compose.override.yml
 .env
 .env.*
 !.env.example
+
+# Generated AI/RAG index
+backend/ai_index/

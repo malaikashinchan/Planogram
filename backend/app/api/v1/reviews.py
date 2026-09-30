@@ -136,7 +136,9 @@ def resolve_review(
         crop_storage_key=review.crop_storage_key,
         correct_product_id=final_product_id,
         human_review_id=review.id,
-        status=SampleStatus.PENDING
+        status=SampleStatus.PENDING,
+        storage_status=review.storage_status,
+        local_storage_path=review.local_storage_path
     )
     db.add(sample)
     db.commit()
@@ -152,8 +154,10 @@ def resolve_review(
         celery_app.send_task("backend.app.workers.tasks.reprocess_audit_task", args=[str(review.audit_id)])
         
     # 5. Automatic Retraining Trigger Check
+    from backend.app.models.review import StorageStatus
     pending_samples = db.query(MLTrainingSample).filter(
-        MLTrainingSample.status == SampleStatus.PENDING
+        MLTrainingSample.status == SampleStatus.PENDING,
+        MLTrainingSample.storage_status == StorageStatus.AVAILABLE
     ).count()
     
     if pending_samples >= settings.MIN_NEW_TRAINING_SAMPLES:

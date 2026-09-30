@@ -130,3 +130,11 @@ def create_user(
     db.commit()
     db.refresh(user)
     return user
+
+def delete_user(db: Session, user_id: UUID, organization_id: UUID) -> bool:
+    user = get_user(db, user_id, organization_id)
+    if not user:
+        return False
+    db.delete(user)
+    db.commit()
+    return True

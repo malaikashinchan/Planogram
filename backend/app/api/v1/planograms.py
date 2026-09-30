@@ -49,18 +49,32 @@ def _planogram_response(p: Planogram, positions_count: int = 0, store: dict | No
 def _version_response(
     v: PlanogramVersion,
     positions: list | None = None,
+    db: Session | None = None,
 ) -> PlanogramVersionResponse:
     pos_list = []
     if positions:
-        pos_list = [
-            PositionResponse(
+        from backend.app.models.product import Product
+        
+        product_map = {}
+        if db:
+            product_ids = [p.product_id for p in positions]
+            products = db.query(Product).filter(Product.id.in_(product_ids)).all()
+            for prod in products:
+                product_map[prod.id] = {
+                    "id": str(prod.id),
+                    "sku_code": prod.sku_code,
+                    "name": prod.name,
+                    "brand": prod.brand,
+                }
+        
+        for p in positions:
+            pos_list.append(PositionResponse(
                 id=p.id,
                 shelf_id=p.shelf_id,
                 position=p.position,
                 product_id=p.product_id,
-            )
-            for p in positions
-        ]
+                product=product_map.get(p.product_id)
+            ))
 
     return PlanogramVersionResponse(
         id=v.id,
@@ -152,13 +166,29 @@ def delete_planogram(
             detail=str(exc),
         )
 
+@router.post("/preview", response_model=dict, status_code=status.HTTP_200_OK)
+def preview_planogram(
+    file: UploadFile = File(...),
+    current_user: User = Depends(
+        require_roles("ADMIN", "MANAGER").dependency
+    ),
+):
+    try:
+        result = planogram_service.preview_planogram(file)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return result
 
 @router.post("/upload", response_model=PlanogramVersionResponse, status_code=status.HTTP_201_CREATED)
 def upload_planogram(
     name: str | None = Form(None),
     store_id: UUID | None = Form(None),
     file: UploadFile = File(...),
-    current_user: User = require_roles("ADMIN", "MANAGER"),
+    current_user: User = Depends(require_roles("ADMIN", "MANAGER").dependency),
     db: Session = Depends(get_db),
 ):
     try:
@@ -238,7 +268,7 @@ def list_versions(
     result = []
     for v in versions:
         positions = planogram_service.get_positions_for_version(db, v.id)
-        result.append(_version_response(v, positions))
+        result.append(_version_response(v, positions, db))
 
     return result
 
@@ -278,7 +308,7 @@ def create_version(
         )
 
     positions = planogram_service.get_positions_for_version(db, version.id)
-    return _version_response(version, positions)
+    return _version_response(version, positions, db)
 
 
 @router.get(
@@ -302,4 +332,4 @@ def get_version(
         )
 
     positions = planogram_service.get_positions_for_version(db, version.id)
-    return _version_response(version, positions)
+    return _version_response(version, positions, db)

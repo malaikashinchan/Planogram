@@ -1,8 +1,11 @@
 """
 FastAPI dependencies for authentication and authorization.
 
-get_current_user  — extracts the session cookie, validates it,
-                    and returns the authenticated User.
+get_current_user  — checks Authorization: Bearer JWT first, then
+                    falls back to the session_token cookie.
+                    This prevents session collision when multiple
+                    users share the same browser.
+
 require_roles     — factory that returns a dependency enforcing
                     that the user has at least one of the
                     specified roles.
@@ -10,9 +13,11 @@ require_roles     — factory that returns a dependency enforcing
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from backend.app.auth.service import get_user_from_session
 from backend.app.core.database import get_db
+from backend.app.core.security import decode_access_token
 from backend.app.models import User
 
 
@@ -24,27 +29,50 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     """
-    Reads the `session_token` HTTP-only cookie from the request,
-    validates the session in the database, and returns the User.
+    Authentication resolution order:
+    1. Authorization: Bearer <JWT>  — preferred (short-lived, user-specific)
+    2. session_token cookie         — fallback (long-lived)
+
+    By preferring the JWT, we ensure the frontend's explicit login always
+    takes precedence over a stale cookie from a previously logged-in user
+    on the same browser.
     """
 
+    # ── 1. Try Bearer JWT ───────────────────────────────────────────
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        raw_jwt = auth_header.removeprefix("Bearer ").strip()
+        if raw_jwt:
+            try:
+                user_id = decode_access_token(raw_jwt)
+                user = db.scalar(select(User).where(User.id == user_id))
+                if user:
+                    from backend.app.models.user import UserStatus
+                    if user.status == UserStatus.ACTIVE:
+                        return user
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Account is inactive.",
+                    )
+            except Exception:
+                # JWT is invalid or expired — fall through to cookie
+                pass
+
+    # ── 2. Try session cookie ────────────────────────────────────────
     session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_token:
+        try:
+            return get_user_from_session(db, session_token)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=str(exc),
+            )
 
-    if not session_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated.",
-        )
-
-    try:
-        user = get_user_from_session(db, session_token)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
-        )
-
-    return user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated.",
+    )
 
 
 def require_roles(*allowed_roles: str):

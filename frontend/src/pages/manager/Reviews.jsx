@@ -9,6 +9,7 @@ import Spinner from '../../components/Spinner/Spinner';
 import ErrorMessage from '../../components/ErrorMessage/ErrorMessage';
 import Badge from '../../components/Badge/Badge';
 import EmptyState from '../../components/EmptyState/EmptyState';
+import { Sparkles } from 'lucide-react';
 
 const Reviews = () => {
   const [reviews, setReviews] = useState([]);
@@ -23,7 +24,7 @@ const Reviews = () => {
   const [newProductName, setNewProductName] = useState('');
   const [newProductBrand, setNewProductBrand] = useState('');
   const [newProductCategory, setNewProductCategory] = useState('');
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState('');
@@ -71,9 +72,9 @@ const Reviews = () => {
         new_product_brand: newProductBrand,
         new_product_category: newProductCategory
       });
-      
+
       setResolveSuccess("Review resolved ✓");
-      
+
       setTimeout(async () => {
         setSelectedReview(null);
         setResolveSuccess('');
@@ -95,8 +96,8 @@ const Reviews = () => {
     return prod ? `${prod.sku_code} - ${prod.name}` : "Unknown";
   };
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredProducts = products.filter(p =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.sku_code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -135,14 +136,14 @@ const Reviews = () => {
                   <td>
                     {rev.predicted_similarity != null ? (
                       <Badge variant={rev.predicted_similarity > 0.5 ? 'success' : 'warning'}>
-                        {rev.predicted_similarity.toFixed(2)}
+                        {rev.predicted_similarity.toFixed(3)}
                       </Badge>
                     ) : 'N/A'}
                   </td>
                   <td><Badge variant="warning">Pending</Badge></td>
                   <td>
-                    <Button 
-                      size="small" 
+                    <Button
+                      size="small"
                       onClick={() => {
                         setSelectedReview(rev);
                         setResolutionType('existing');
@@ -167,7 +168,7 @@ const Reviews = () => {
           <h3 style={{ marginTop: 0, marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
             Resolve Recognition
           </h3>
-          
+
           {resolveSuccess ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
               <div style={{ fontSize: '4rem', color: 'var(--success-color)', marginBottom: '1rem' }}>✓</div>
@@ -185,7 +186,7 @@ const Reviews = () => {
                     <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-light)' }}>No Image</div>
                   )}
                 </div>
-                
+
                 <div style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
@@ -198,17 +199,30 @@ const Reviews = () => {
                     </div>
                   </div>
                 </div>
+                
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    const event = new CustomEvent('trigger-assistant-explanation', { 
+                      detail: `Why does this product require human review? Predicted product is ${getProductName(selectedReview.predicted_product_id)} and the similarity is ${selectedReview.predicted_similarity?.toFixed(2) || 'N/A'}.` 
+                    });
+                    window.dispatchEvent(event);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  <Sparkles size={16} /> Ask AI why this needs review
+                </Button>
               </div>
 
               {/* Right Side: Resolution Form */}
               <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
                 <ErrorMessage message={resolveError} />
-                
+
                 <form onSubmit={handleResolve} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input 
-                        type="radio" 
+                      <input
+                        type="radio"
                         name="resType"
                         checked={resolutionType === 'existing'}
                         onChange={() => setResolutionType('existing')}
@@ -216,8 +230,8 @@ const Reviews = () => {
                       Existing Product
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input 
-                        type="radio" 
+                      <input
+                        type="radio"
                         name="resType"
                         checked={resolutionType === 'new'}
                         onChange={() => setResolutionType('new')}
@@ -228,18 +242,18 @@ const Reviews = () => {
 
                   {resolutionType === 'existing' ? (
                     <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <Input 
-                        placeholder="Search Product..." 
+                      <Input
+                        placeholder="Search Product..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                       />
                       <div style={{ flex: '1', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px', maxHeight: '200px' }}>
                         {filteredProducts.map(p => (
-                          <div 
+                          <div
                             key={p.id}
                             onClick={() => setSelectedProductId(p.id)}
-                            style={{ 
-                              padding: '0.75rem', 
+                            style={{
+                              padding: '0.75rem',
                               cursor: 'pointer',
                               background: selectedProductId === p.id ? 'var(--primary-color)' : 'transparent',
                               color: selectedProductId === p.id ? '#fff' : 'inherit',

@@ -158,6 +158,11 @@ def get_audit(
     if audit_img and audit_img.storage_key:
         image_url = storage.generate_url(audit_img.storage_key)
 
+    from backend.app.models import Store, PlanogramVersion, Planogram
+    store_db = db.query(Store).filter(Store.id == audit.store_id).first()
+    pv_db = db.query(PlanogramVersion).filter(PlanogramVersion.id == audit.planogram_version_id).first()
+    planogram_db = db.query(Planogram).filter(Planogram.id == pv_db.planogram_id).first() if pv_db else None
+
     return AuditDetailResponse(
         id=audit.id,
         organization_id=audit.organization_id,
@@ -172,6 +177,8 @@ def get_audit(
         job=job_resp,
         compliance=compliance,
         violations=violations,
+        store={"id": store_db.id, "name": store_db.name} if store_db else None,
+        planogram={"id": planogram_db.id, "name": planogram_db.name} if planogram_db else None
     )
 
 @router.get("/{audit_id}/violations", response_model=list[DetailedViolation])

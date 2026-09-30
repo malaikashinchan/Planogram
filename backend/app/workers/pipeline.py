@@ -17,7 +17,7 @@ from backend.app.ml.reconstruction import reconstruct_shelf
 from backend.app.ml.compliance import calculate_compliance
 from backend.app.core.config import settings
 from backend.app.models.ml import RecognitionStatus
-from backend.app.models.review import HumanReview
+from backend.app.models.review import HumanReview, StorageStatus
 import time
 import io
 from PIL import Image
@@ -162,18 +162,41 @@ def process_audit_pipeline(audit_id: UUID, job_id: UUID):
                     crop_bytes = crop_bytes_io.getvalue()
                     
                     crop_key = f"human_reviews/{audit_id}_{rec.id}.jpg"
-                    storage.upload(io.BytesIO(crop_bytes), crop_key, "image/jpeg")
                     
+                    # Store & Forward Pattern: Save to local disk first
+                    import os
+                    from backend.app.core.config import settings
+                    from backend.app.workers.tasks import upload_to_s3_retry_task
+                    
+                    local_dir = settings.PROJECT_ROOT / "outputs" / "local_s3" / "human_reviews"
+                    local_dir.mkdir(parents=True, exist_ok=True)
+                    local_path = str(local_dir / f"{audit_id}_{rec.id}.jpg")
+                    
+                    with open(local_path, "wb") as f:
+                        f.write(crop_bytes)
+                        
+                    import uuid
+                    hr_id = uuid.uuid4()
                     hr = HumanReview(
+                        id=hr_id,
                         organization_id=audit.organization_id,
                         audit_id=audit_id,
                         recognition_id=rec.id,
                         predicted_product_id=rec.predicted_product_id,
                         predicted_similarity=rec.similarity,
                         predicted_margin=rec.margin,
-                        crop_storage_key=crop_key
+                        crop_storage_key=crop_key,
+                        local_storage_path=local_path,
+                        storage_status=StorageStatus.PENDING_UPLOAD
                     )
                     db.add(hr)
+                    
+                    # Queue the background upload task (it will retry on failure)
+                    upload_to_s3_retry_task.delay(
+                        local_file_path=local_path, 
+                        storage_key=crop_key, 
+                        human_review_id=str(hr_id)
+                    )
             
             audit.status = AuditStatus.PENDING_REVIEW
             job.status = JobStatus.COMPLETED
@@ -224,16 +247,16 @@ def process_audit_pipeline(audit_id: UUID, job_id: UUID):
 
         # Save Violations
         for mp in compliance_data["missing_products"]:
-            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=mp["shelf_id"], position=0, violation_type=ViolationType.MISSING_PRODUCT, expected_product_id=sku_to_uuid.get(mp.get("sku_id"))))
+            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=mp["shelf_id"], position=mp.get("position", 0), violation_type=ViolationType.MISSING_PRODUCT, expected_product_id=sku_to_uuid.get(mp.get("sku_id"))))
             
         for ep in compliance_data["extra_products"]:
-            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=ep["shelf_id"], position=0, violation_type=ViolationType.EXTRA_PRODUCT, actual_product_id=sku_to_uuid.get(ep.get("sku_id"))))
+            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=ep["shelf_id"], position=ep.get("position", 0), violation_type=ViolationType.EXTRA_PRODUCT, actual_product_id=sku_to_uuid.get(ep.get("sku_id"))))
             
         for mp in compliance_data["misplaced_products"]:
             db.add(ComplianceViolation(audit_id=audit_id, shelf_id=mp["shelf_id"], position=mp["position"], violation_type=ViolationType.MISPLACED_PRODUCT, expected_product_id=sku_to_uuid.get(mp.get("expected_sku_id")), actual_product_id=sku_to_uuid.get(mp.get("actual_sku_id"))))
             
         for fv in compliance_data["facing_violations"]:
-            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=fv["shelf_id"], position=0, violation_type=ViolationType.FACING_MISMATCH, expected_product_id=sku_to_uuid.get(fv.get("sku_id")), actual_product_id=sku_to_uuid.get(fv.get("sku_id"))))
+            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=fv["shelf_id"], position=fv.get("position", 0), violation_type=ViolationType.FACING_MISMATCH, expected_product_id=sku_to_uuid.get(fv.get("sku_id")), actual_product_id=sku_to_uuid.get(fv.get("sku_id"))))
 
         # 8. Mark as complete
         from datetime import datetime, timezone
@@ -250,10 +273,13 @@ def process_audit_pipeline(audit_id: UUID, job_id: UUID):
         db.rollback()
         # Handle failure
         job = db.query(ProcessingJob).filter(ProcessingJob.id == job_id).first()
+        audit = db.query(Audit).filter(Audit.id == audit_id).first()
         if job:
             job.status = JobStatus.FAILED
             job.error_message = str(e)
-            db.commit()
+        if audit:
+            audit.status = AuditStatus.FAILED
+        db.commit()
         print(f"Pipeline failed for audit {audit_id}: {e}")
         raise
     finally:
@@ -373,16 +399,16 @@ def reprocess_audit_pipeline(audit_id: UUID):
         db.flush()
         
         for mp in compliance_data["missing_products"]:
-            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=mp["shelf_id"], position=0, violation_type=ViolationType.MISSING_PRODUCT, expected_product_id=sku_to_uuid.get(mp.get("sku_id"))))
+            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=mp["shelf_id"], position=mp.get("position", 0), violation_type=ViolationType.MISSING_PRODUCT, expected_product_id=sku_to_uuid.get(mp.get("sku_id"))))
             
         for ep in compliance_data["extra_products"]:
-            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=ep["shelf_id"], position=0, violation_type=ViolationType.EXTRA_PRODUCT, actual_product_id=sku_to_uuid.get(ep.get("sku_id"))))
+            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=ep["shelf_id"], position=ep.get("position", 0), violation_type=ViolationType.EXTRA_PRODUCT, actual_product_id=sku_to_uuid.get(ep.get("sku_id"))))
             
         for mp in compliance_data["misplaced_products"]:
             db.add(ComplianceViolation(audit_id=audit_id, shelf_id=mp["shelf_id"], position=mp["position"], violation_type=ViolationType.MISPLACED_PRODUCT, expected_product_id=sku_to_uuid.get(mp.get("expected_sku_id")), actual_product_id=sku_to_uuid.get(mp.get("actual_sku_id"))))
             
         for fv in compliance_data["facing_violations"]:
-            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=fv["shelf_id"], position=0, violation_type=ViolationType.FACING_MISMATCH, expected_product_id=sku_to_uuid.get(fv.get("sku_id")), actual_product_id=sku_to_uuid.get(fv.get("sku_id"))))
+            db.add(ComplianceViolation(audit_id=audit_id, shelf_id=fv["shelf_id"], position=fv.get("position", 0), violation_type=ViolationType.FACING_MISMATCH, expected_product_id=sku_to_uuid.get(fv.get("sku_id")), actual_product_id=sku_to_uuid.get(fv.get("sku_id"))))
             
         # 4. Mark Audit Completed
         from datetime import datetime, timezone

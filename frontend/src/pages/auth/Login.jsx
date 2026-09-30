@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import authService from '../../services/authService';
 import Input from '../../components/Input/Input';
@@ -13,8 +13,18 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login } = useContext(AuthContext);
+  const { login, isAuthenticated, user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  // If already authenticated, redirect to correct dashboard
+  if (isAuthenticated && user && Array.isArray(user.roles) && user.roles.length > 0) {
+    if (user.roles.includes('ADMIN') || user.roles.includes('MANAGER')) {
+      return <Navigate to="/manager" replace />;
+    }
+    if (user.roles.includes('EMPLOYEE')) {
+      return <Navigate to="/employee" replace />;
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

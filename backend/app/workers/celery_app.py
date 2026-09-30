@@ -10,7 +10,7 @@ celery_app = Celery(
     "planogram_worker",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["backend.app.workers.tasks"],
+    include=["backend.app.workers.tasks", "backend.app.workers.training_tasks"],
 )
 
 celery_app.conf.update(

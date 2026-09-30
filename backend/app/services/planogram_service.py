@@ -25,6 +25,8 @@ from backend.app.models import (
     Product,
     Store,
 )
+import io
+import pandas as pd
 
 
 def get_planograms(
@@ -258,6 +260,79 @@ def create_version(
 
     return version
 
+def preview_planogram(upload_file) -> dict:
+    """
+    Parse a CSV, JSON, XLS, or XLSX planogram file and return
+    the first 5 rows with standardized positional column names.
+
+    Expected column order:
+    1. planogram_id
+    2. version
+    3. store_id
+    4. shelf_id
+    5. position
+    6. sku_id
+    """
+    filename = upload_file.filename.lower() if upload_file.filename else ""
+    content = upload_file.file.read()
+
+    try:
+        if filename.endswith(".json"):
+            df = pd.read_json(io.BytesIO(content))
+        elif filename.endswith((".xls", ".xlsx")):
+            df = pd.read_excel(io.BytesIO(content))
+        elif filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(content))
+        else:
+            raise ValueError(
+                "Unsupported file format. Please upload CSV, JSON, XLS, or XLSX."
+            )
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to parse file: {e}")
+
+    # Minimum required columns
+    if len(df.columns) < 6:
+        raise ValueError(
+            "Planogram file must contain at least 6 columns "
+            "(Planogram ID, Version, Store ID, Shelf ID, Position, SKU ID)."
+        )
+
+    # Positional mapping — exactly like Product Master
+    new_cols = list(df.columns)
+
+    new_cols[0] = "planogram_id"
+    new_cols[1] = "version"
+    new_cols[2] = "store_id"
+    new_cols[3] = "shelf_id"
+    new_cols[4] = "position"
+    new_cols[5] = "sku_id"
+
+    df.columns = new_cols
+
+    # Preview first 5 rows
+    preview_df = df.head(5).copy()
+
+    # Convert NaN / NA values to None
+    preview_df = preview_df.astype(object).where(
+        pd.notna(preview_df),
+        None
+    )
+
+    return {
+        "totalRows": len(df),
+        "preview": preview_df[
+            [
+                "planogram_id",
+                "version",
+                "store_id",
+                "shelf_id",
+                "position",
+                "sku_id",
+            ]
+        ].to_dict("records"),
+    }
 
 def ingest_planogram(
     db: Session,

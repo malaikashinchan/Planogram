@@ -41,6 +41,28 @@ const Employees = () => {
     fetchUsers();
   }, []);
 
+  const handleToggleStatus = async (user) => {
+    try {
+      const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      await userService.updateUserStatus(user.id, newStatus);
+      setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to update user status.');
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!window.confirm(`Are you sure you want to permanently delete ${user.first_name} ${user.last_name}?`)) {
+      return;
+    }
+    try {
+      await userService.deleteUser(user.id);
+      setUsers(users.filter(u => u.id !== user.id));
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to delete user.');
+    }
+  };
+
   const handleAddSubmit = async (e) => {
     e.preventDefault();
     setAddError('');
@@ -98,6 +120,7 @@ const Employees = () => {
                 <th>Role</th>
                 <th>Status</th>
                 <th>Last Login</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -116,6 +139,42 @@ const Employees = () => {
                     </Badge>
                   </td>
                   <td>{u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'Never'}</td>
+                  <td>
+                    {!(u.roles.includes('ADMIN') || u.roles.includes('MANAGER')) ? (
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => handleToggleStatus(u)}
+                          style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            color: u.status === 'ACTIVE' ? 'var(--warning-color)' : 'var(--success-color)', 
+                            cursor: 'pointer', 
+                            padding: 0,
+                            fontWeight: 'bold',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {u.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteUser(u)}
+                          style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            color: 'var(--danger-color)', 
+                            cursor: 'pointer', 
+                            padding: 0,
+                            fontWeight: 'bold',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>N/A</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

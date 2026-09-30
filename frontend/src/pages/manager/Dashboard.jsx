@@ -93,6 +93,8 @@ const Dashboard = () => {
                 <Tooltip 
                   formatter={(value) => [`${value.toFixed(1)}%`, 'Compliance']}
                   labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                  contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)', color: 'var(--text-color)' }}
+                  itemStyle={{ color: 'var(--primary-color)' }}
                 />
                 <Line 
                   type="monotone" 
@@ -114,7 +116,7 @@ const Dashboard = () => {
             <div>
               <div className={styles.statusItem}>
                 <span style={{ color: '#6c757d' }}>Current Version</span>
-                <span style={{ fontWeight: 500 }}>{modelStatus.active_version}</span>
+                <span style={{ fontWeight: 500 }}>{modelStatus.active_model_version}</span>
               </div>
               <div className={styles.statusItem}>
                 <span style={{ color: '#6c757d' }}>Status</span>

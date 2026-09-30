@@ -3,6 +3,7 @@ Store endpoints.
 
 GET   /stores                       — List stores
 POST  /stores                       — Create store (ADMIN, MANAGER)
+POST  /stores/geocode/reverse       — Reverse geocode latitude/longitude
 GET   /stores/{store_id}            — Get store details
 PATCH /stores/{store_id}            — Update store (ADMIN, MANAGER)
 PATCH /stores/{store_id}/status     — Activate/deactivate (ADMIN, MANAGER)
@@ -21,7 +22,10 @@ from backend.app.schemas.store import (
     StoreResponse,
     StoreStatusUpdate,
     StoreUpdate,
+    ReverseGeocodeRequest,
+    ReverseGeocodeResponse,
 )
+from backend.app.services import geocoding
 from backend.app.services import store_service
 
 
@@ -32,14 +36,29 @@ def _to_response(store: Store) -> StoreResponse:
     return StoreResponse(
         id=store.id,
         organization_id=store.organization_id,
+
         code=store.code,
         name=store.name,
+
         address=store.address,
+        pincode=store.pincode,
+
+        latitude=store.latitude,
+        longitude=store.longitude,
+
+        landmark=store.landmark,
+        address_details=store.address_details,
+
         status=store.status.value,
+
         created_at=store.created_at,
         updated_at=store.updated_at,
     )
 
+
+# ============================================================
+# LIST STORES
+# ============================================================
 
 @router.get("/", response_model=list[StoreResponse])
 def list_stores(
@@ -49,12 +68,24 @@ def list_stores(
     db: Session = Depends(get_db),
 ):
     stores = store_service.get_stores(
-        db, current_user.organization_id, skip, limit
+        db,
+        current_user.organization_id,
+        skip,
+        limit,
     )
+
     return [_to_response(s) for s in stores]
 
 
-@router.post("/", response_model=StoreResponse, status_code=status.HTTP_201_CREATED)
+# ============================================================
+# CREATE STORE
+# ============================================================
+
+@router.post(
+    "/",
+    response_model=StoreResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_store(
     data: StoreCreate,
     current_user: User = require_roles("ADMIN", "MANAGER"),
@@ -67,7 +98,13 @@ def create_store(
             data.code,
             data.name,
             data.address,
+            data.pincode,
+            data.latitude,
+            data.longitude,
+            data.landmark,
+            data.address_details,
         )
+
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -77,13 +114,47 @@ def create_store(
     return _to_response(store)
 
 
+# ============================================================
+# REVERSE GEOCODING
+# ============================================================
+
+@router.post(
+    "/geocode/reverse",
+    response_model=ReverseGeocodeResponse,
+)
+def reverse_geocode(
+    data: ReverseGeocodeRequest,
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+):
+    result = geocoding.reverse_geocode(
+        data.latitude,
+        data.longitude,
+    )
+
+    if not result.get("address"):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Geocoding service did not return an address. This may be due to rate limiting. Please wait a moment and try again.",
+        )
+
+    return result
+
+
+# ============================================================
+# GET STORE
+# ============================================================
+
 @router.get("/{store_id}", response_model=StoreResponse)
 def get_store(
     store_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    store = store_service.get_store(db, store_id, current_user.organization_id)
+    store = store_service.get_store(
+        db,
+        store_id,
+        current_user.organization_id,
+    )
 
     if not store:
         raise HTTPException(
@@ -94,7 +165,14 @@ def get_store(
     return _to_response(store)
 
 
-@router.patch("/{store_id}", response_model=StoreResponse)
+# ============================================================
+# UPDATE STORE
+# ============================================================
+
+@router.patch(
+    "/{store_id}",
+    response_model=StoreResponse,
+)
 def update_store(
     store_id: UUID,
     data: StoreUpdate,
@@ -102,7 +180,16 @@ def update_store(
     db: Session = Depends(get_db),
 ):
     store = store_service.update_store(
-        db, store_id, current_user.organization_id, data.name, data.address
+        db,
+        store_id,
+        current_user.organization_id,
+        data.name,
+        data.address,
+        data.pincode,
+        data.latitude,
+        data.longitude,
+        data.landmark,
+        data.address_details,
     )
 
     if not store:
@@ -114,7 +201,14 @@ def update_store(
     return _to_response(store)
 
 
-@router.patch("/{store_id}/status", response_model=StoreResponse)
+# ============================================================
+# ACTIVATE / DEACTIVATE STORE
+# ============================================================
+
+@router.patch(
+    "/{store_id}/status",
+    response_model=StoreResponse,
+)
 def update_store_status(
     store_id: UUID,
     data: StoreStatusUpdate,
@@ -122,7 +216,10 @@ def update_store_status(
     db: Session = Depends(get_db),
 ):
     store = store_service.update_store_status(
-        db, store_id, current_user.organization_id, data.status
+        db,
+        store_id,
+        current_user.organization_id,
+        data.status,
     )
 
     if not store:
@@ -132,3 +229,29 @@ def update_store_status(
         )
 
     return _to_response(store)
+
+
+# ============================================================
+# DELETE STORE
+# ============================================================
+
+@router.delete(
+    "/{store_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_store(
+    store_id: UUID,
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+    db: Session = Depends(get_db),
+):
+    success = store_service.delete_store(
+        db,
+        store_id,
+        current_user.organization_id,
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Store not found.",
+        )

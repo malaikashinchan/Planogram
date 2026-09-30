@@ -101,5 +101,60 @@ class S3StorageService(StorageService):
             return None
 
 
+class LocalStorageService(StorageService):
+    """Local disk implementation for testing without AWS S3."""
+
+    def __init__(self):
+        import os
+        from backend.app.core.config import settings
+        self.storage_dir = settings.PROJECT_ROOT / "outputs" / "local_s3"
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+
+    def upload(
+        self,
+        file_obj: BinaryIO,
+        storage_key: str,
+        content_type: str = "application/octet-stream",
+    ) -> bool:
+        try:
+            import os
+            # storage_key might have slashes, e.g. "audits/123/crop.jpg"
+            file_path = self.storage_dir / storage_key
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(file_path, "wb") as f:
+                f.write(file_obj.read())
+            return True
+        except Exception as e:
+            print(f"Local Storage Upload failed: {e}")
+            return False
+
+    def download(self, storage_key: str) -> bytes | None:
+        try:
+            file_path = self.storage_dir / storage_key
+            if not file_path.exists():
+                return None
+            with open(file_path, "rb") as f:
+                return f.read()
+        except Exception as e:
+            print(f"Local Storage Download failed: {e}")
+            return None
+
+    def delete(self, storage_key: str) -> bool:
+        try:
+            file_path = self.storage_dir / storage_key
+            if file_path.exists():
+                file_path.unlink()
+            return True
+        except Exception as e:
+            print(f"Local Storage Delete failed: {e}")
+            return False
+
+    def generate_url(self, storage_key: str, expiration: int = 3600) -> str | None:
+        # In a local environment, you could serve these statically.
+        # But for pipeline training, we usually just need `download`.
+        return f"http://localhost:8000/static/{storage_key}"
+
 # Global instance to be used by the application
 storage = S3StorageService()
+# storage = LocalStorageService()

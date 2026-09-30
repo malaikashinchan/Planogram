@@ -15,6 +15,7 @@
   padding: 1.5rem;
   border-radius: 8px;
   box-shadow: var(--card-shadow);
+  border: var(--card-border);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -44,6 +45,7 @@
   padding: 1.5rem;
   border-radius: 8px;
   box-shadow: var(--card-shadow);
+  border: var(--card-border);
 }
 
 .chartCard h3 {
@@ -57,6 +59,7 @@
   padding: 1.5rem;
   border-radius: 8px;
   box-shadow: var(--card-shadow);
+  border: var(--card-border);
 }
 
 .mlStatusCard h3 {

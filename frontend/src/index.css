@@ -16,22 +16,27 @@
 
   --input-bg: #ffffff;
   --card-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  --card-border: 1px solid transparent;
   --sidebar-hover: #f8f9fa;
   --sidebar-active: #e6f2ff;
 }
 
 body.dark-mode {
-  --bg-color: #121212;
-  --bg-color-alt: #1a1a1a;
-  --surface-color: #1e1e1e;
-  --text-color: #e0e0e0;
-  --text-muted: #a0a0a0;
-  --border-color: #333333;
+  --bg-color: #0b1120;
+  --bg-color-alt: #0f172a;
+  --surface-color: #1e293b;
+  --text-color: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
 
-  --input-bg: #2d2d2d;
+  --primary-color: #3b82f6;
+  --primary-hover: #60a5fa;
+
+  --input-bg: #0f172a;
   --card-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  --sidebar-hover: #2d2d2d;
-  --sidebar-active: #004488;
+  --card-border: 1px solid #475569;
+  --sidebar-hover: #334155;
+  --sidebar-active: #1e3a8a;
 }
 
 body {

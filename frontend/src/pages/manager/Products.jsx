@@ -146,7 +146,7 @@ const Products = () => {
       ) : filteredProducts.length === 0 ? (
         <EmptyState message="No products found matching your search." />
       ) : (
-        <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: 'var(--surface-color)', padding: '1.5rem', borderRadius: '8px', boxShadow: 'var(--card-shadow)' }}>
           <Table>
             <thead>
               <tr>

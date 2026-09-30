@@ -93,6 +93,8 @@ def get_model_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from backend.app.models.ml import ModelVersion, ModelStatus
+    
     org_id = current_user.organization_id
     
     pending_samples = db.query(MLTrainingSample).filter(
@@ -100,9 +102,21 @@ def get_model_status(
         MLTrainingSample.status == SampleStatus.PENDING
     ).count()
     
+    active_model = db.query(ModelVersion).filter(
+        ModelVersion.status == ModelStatus.ACTIVE
+    ).order_by(ModelVersion.created_at.desc()).first()
+    
+    is_training = db.query(ModelVersion).filter(
+        ModelVersion.status == ModelStatus.TRAINING
+    ).count() > 0
+    
+    last_training_date = active_model.created_at if active_model else None
+    
     return ModelStatusResponse(
         pending_training_samples=pending_samples,
         min_new_training_samples=settings.MIN_NEW_TRAINING_SAMPLES,
         recognition_review_threshold=settings.RECOGNITION_REVIEW_THRESHOLD,
-        active_model_version="v1_baseline" # In a real system, you'd fetch this from a ModelRegistry table
+        active_model_version=active_model.version if active_model else "v1_baseline",
+        is_training=is_training,
+        last_training_date=last_training_date
     )

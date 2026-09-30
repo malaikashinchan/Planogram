@@ -131,7 +131,7 @@ def update_user_role(
 def update_user_status(
     user_id: UUID,
     data: UserStatusUpdate,
-    current_user: User = require_roles("ADMIN"),
+    current_user: User = require_roles("ADMIN", "MANAGER"),
     db: Session = Depends(get_db),
 ):
     user = user_service.update_user_status(
@@ -145,3 +145,23 @@ def update_user_status(
         )
 
     return _to_response(user)
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_endpoint(
+    user_id: UUID,
+    current_user: User = require_roles("ADMIN", "MANAGER"),
+    db: Session = Depends(get_db),
+):
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot delete yourself.",
+        )
+        
+    success = user_service.delete_user(db, user_id, current_user.organization_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )

@@ -5,7 +5,9 @@ import Spinner from '../../components/Spinner/Spinner';
 import ErrorMessage from '../../components/ErrorMessage/ErrorMessage';
 import Badge from '../../components/Badge/Badge';
 import Button from '../../components/Button/Button';
-import { ChevronLeft, AlertTriangle } from 'lucide-react';
+import Modal from '../../components/Modal/Modal';
+import PlanogramViewer from '../../components/PlanogramViewer/PlanogramViewer';
+import { ChevronLeft, AlertTriangle, Sparkles, LayoutTemplate } from 'lucide-react';
 
 const AuditResult = () => {
   const { id } = useParams();
@@ -15,6 +17,7 @@ const AuditResult = () => {
   const [reviews, setReviews] = useState([]);
   const [violations, setViolations] = useState([]);
   const [activeFilter, setActiveFilter] = useState(null);
+  const [showPlanogram, setShowPlanogram] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -45,10 +48,16 @@ const AuditResult = () => {
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       <button 
-        onClick={() => navigate(-1)} 
+        onClick={() => {
+          if (window.location.pathname.startsWith('/manager')) {
+            navigate('/manager/audits');
+          } else {
+            navigate('/employee');
+          }
+        }}
         style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1.5rem', fontSize: '1rem' }}
       >
-        <ChevronLeft size={20} /> Back
+        <ChevronLeft size={20} /> {window.location.pathname.startsWith('/manager') ? 'Back to Audits' : 'Back to Dashboard'}
       </button>
 
       <div style={{ background: 'var(--surface-color)', padding: '2rem', borderRadius: '12px', boxShadow: 'var(--card-shadow)' }}>
@@ -89,6 +98,25 @@ const AuditResult = () => {
                 {audit.compliance?.availability_rate !== undefined 
                   ? `${(audit.compliance.availability_rate * 100).toFixed(0)}%` 
                   : 'N/A'}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1rem' }}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    const event = new CustomEvent('trigger-assistant-explanation', { detail: `Explain this audit results to me. The audit ID is ${audit.id}.` });
+                    window.dispatchEvent(event);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Sparkles size={16} /> Explain this audit
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPlanogram(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <LayoutTemplate size={16} /> View Target Layout
+                </Button>
               </div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1rem' }}>
                 <div>
@@ -136,7 +164,7 @@ const AuditResult = () => {
                 onClick={() => setActiveFilter(activeFilter === 'FACING_MISMATCH' ? null : 'FACING_MISMATCH')}
                 style={{ background: '#cce5ff', padding: '1.5rem', borderRadius: '8px', textAlign: 'center', border: '1px solid #b8daff', cursor: 'pointer', opacity: activeFilter && activeFilter !== 'FACING_MISMATCH' ? 0.5 : 1, transition: 'opacity 0.2s' }}
               >
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#004085' }}>{audit.violations?.facing || 0}</div>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#004085' }}>{audit.violations?.facing_mismatch || 0}</div>
                 <div style={{ color: '#004085', fontSize: '0.9rem' }}>Facing</div>
               </div>
             </div>
@@ -150,7 +178,7 @@ const AuditResult = () => {
                       <tr style={{ background: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)' }}>
                         <th style={{ padding: '1rem', fontWeight: 500 }}>Type</th>
                         <th style={{ padding: '1rem', fontWeight: 500 }}>Product</th>
-                        <th style={{ padding: '1rem', fontWeight: 500 }}>Expected Position</th>
+                        <th style={{ padding: '1rem', fontWeight: 500 }}>Expected Location</th>
                         <th style={{ padding: '1rem', fontWeight: 500 }}>Details</th>
                       </tr>
                     </thead>
@@ -170,7 +198,7 @@ const AuditResult = () => {
                             <div style={{ fontWeight: 500 }}>{v.expected_name || v.actual_name || 'Unknown Product'}</div>
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>SKU: {v.expected_sku || v.actual_sku || 'N/A'}</div>
                           </td>
-                          <td style={{ padding: '1rem' }}>{v.position}</td>
+                          <td style={{ padding: '1rem' }}>Shelf {v.shelf_id}, Pos {v.position}</td>
                           <td style={{ padding: '1rem', color: 'var(--text-light)', fontSize: '0.9rem' }}>{v.details || '-'}</td>
                         </tr>
                       ))}
@@ -216,9 +244,24 @@ const AuditResult = () => {
                 </div>
               </div>
             )}
+            
+            <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
+              <Button onClick={() => navigate('/employee')} variant="secondary">Go to Dashboard</Button>
+              <Button onClick={() => navigate('/employee/audit/new')}>Start New Audit</Button>
+            </div>
           </>
         )}
       </div>
+
+      <Modal isOpen={showPlanogram} onClose={() => setShowPlanogram(false)}>
+        <div style={{ padding: '1rem', minWidth: '600px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>Target Planogram Layout</h2>
+            <Button variant="secondary" onClick={() => setShowPlanogram(false)}>Close</Button>
+          </div>
+          {audit?.planogram?.id && <PlanogramViewer planogramId={audit.planogram.id} />}
+        </div>
+      </Modal>
     </div>
   );
 };

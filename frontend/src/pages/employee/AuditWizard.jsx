@@ -7,6 +7,7 @@ import Button from '../../components/Button/Button';
 import Select from '../../components/Select/Select';
 import Spinner from '../../components/Spinner/Spinner';
 import ErrorMessage from '../../components/ErrorMessage/ErrorMessage';
+import PlanogramViewer from '../../components/PlanogramViewer/PlanogramViewer';
 import { Store, LayoutTemplate, Camera, Upload, CheckCircle, Loader2 } from 'lucide-react';
 import styles from './AuditWizard.module.css';
 
@@ -108,7 +109,7 @@ const AuditWizard = () => {
     
     try {
       const audit = await auditService.createAudit(selectedStore, selectedPlanogram, imageFile);
-      setPollingAuditId(audit.id);
+      setPollingAuditId(audit.audit_id);
       setStep(4);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to submit audit.');
@@ -168,6 +169,13 @@ const AuditWizard = () => {
                 ))}
               </Select>
             )}
+            
+            {selectedPlanogram && (
+              <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                <PlanogramViewer planogramId={selectedPlanogram} />
+              </div>
+            )}
+            
             <div className={styles.stepFooter}>
               <Button onClick={() => setStep(1)} variant="secondary">Back</Button>
               <Button onClick={() => setStep(3)} disabled={!selectedPlanogram}>Continue</Button>

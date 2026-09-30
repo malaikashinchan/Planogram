@@ -36,11 +36,11 @@ def calculate_compliance(reconstruction: list[dict], expected_planogram: list[di
     total_expected_positions = 0
     total_correct_positions = 0
     
-    total_expected_products = 0 # sum of expected facings
-    total_available_products = 0
+    total_expected_facings = 0
+    total_correct_facings = 0
     
     unique_expected_skus_count = 0
-    correct_facings_count = 0
+    available_skus_count = 0
     
     all_shelf_ids = set(ideal_shelves.keys()) | set(actual_shelves.keys())
     
@@ -68,26 +68,32 @@ def calculate_compliance(reconstruction: list[dict], expected_planogram: list[di
             
             if exp_count > 0:
                 unique_expected_skus_count += 1
-                total_expected_products += exp_count
-                total_available_products += min(act_count, exp_count)
+                if act_count > 0:
+                    available_skus_count += 1
+                
+                total_expected_facings += exp_count
+                total_correct_facings += min(act_count, exp_count)
             
             diff = act_count - exp_count
             
             if act_count == 0 and exp_count > 0:
-                report["missing_products"].append({"shelf_id": shelf_id, "sku_id": sku, "expected_qty": exp_count})
+                # Find the first expected position for this SKU on this shelf
+                first_pos = next((p for p, s in ideal_pos_map.items() if s == sku), 0)
+                report["missing_products"].append({"shelf_id": shelf_id, "position": first_pos, "sku_id": sku, "expected_qty": exp_count})
             elif exp_count == 0 and act_count > 0:
-                report["extra_products"].append({"shelf_id": shelf_id, "sku_id": sku, "found_qty": act_count})
+                # Find the first actual position for this SKU on this shelf
+                first_pos = next((p for p, s in actual_pos_map.items() if s == sku), 0)
+                report["extra_products"].append({"shelf_id": shelf_id, "position": first_pos, "sku_id": sku, "found_qty": act_count})
             elif exp_count > 0 and act_count > 0 and diff != 0:
+                first_pos = next((p for p, s in ideal_pos_map.items() if s == sku), 0)
                 report["facing_violations"].append({
                     "shelf_id": shelf_id,
+                    "position": first_pos,
                     "sku_id": sku,
                     "expected_facings": exp_count,
                     "actual_facings": act_count,
                     "difference": diff
                 })
-                
-            if exp_count > 0 and diff == 0:
-                correct_facings_count += 1
                 
         # 2. Spatial Arrangement (Misplaced) & Position Accuracy
         for pos, exp_sku in ideal_pos_map.items():
@@ -106,8 +112,8 @@ def calculate_compliance(reconstruction: list[dict], expected_planogram: list[di
 
     # Calculate Raw Metrics
     pos_acc = total_correct_positions / total_expected_positions if total_expected_positions > 0 else 0.0
-    avail_rate = total_available_products / total_expected_products if total_expected_products > 0 else 0.0
-    facing_comp = correct_facings_count / unique_expected_skus_count if unique_expected_skus_count > 0 else 0.0
+    avail_rate = available_skus_count / unique_expected_skus_count if unique_expected_skus_count > 0 else 0.0
+    facing_comp = total_correct_facings / total_expected_facings if total_expected_facings > 0 else 0.0
     
     report["position_accuracy"] = round(pos_acc, 4)
     report["availability_rate"] = round(avail_rate, 4)

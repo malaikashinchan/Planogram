@@ -8,32 +8,32 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor: Attach JWT Token
+// Request Interceptor: Always attach the current JWT from localStorage
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      // Ensure no stale Authorization header lingers
+      delete config.headers.Authorization;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle common errors (e.g., 401 Unauthorized)
+// Response Interceptor: On 401, clear the stale JWT and force re-login
+// This prevents the scenario where an expired JWT silently falls through
+// to a session cookie belonging to a DIFFERENT user (role collision).
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    if (error.response) {
-      // If we receive a 401, we might want to clear token and redirect to login
-      if (error.response.status === 401) {
-        localStorage.removeItem('token');
-        window.dispatchEvent(new Event('auth:unauthorized'));
-      }
+    if (error.response?.status === 401) {
+      // Clear the expired/invalid JWT so it can't pollute future requests
+      localStorage.removeItem('token');
+      // Notify AuthContext to reset auth state and redirect to login
+      window.dispatchEvent(new Event('auth:unauthorized'));
     }
     return Promise.reject(error);
   }

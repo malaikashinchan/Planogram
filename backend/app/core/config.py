@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     SECRET_KEY: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours — prevents mid-session cookie collision
 
     FRONTEND_URL: str = "http://localhost:5173"
 
@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     # Redis / Celery
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
+    NOMINATIM_USER_AGENT: str = "PlanogramCompliance/1.0"
 
     PROJECT_ROOT: Path = BASE_DIR.parent
 
@@ -47,6 +50,11 @@ class Settings(BaseSettings):
     TRAINING_LEARNING_RATE: float = 0.0001
     TRAINING_TRIPLET_MARGIN: float = 1.0
     TRAINING_EVALUATION_LOSS_THRESHOLD: float = 0.5
+
+    # AI / LLM configuration
+    AI_PROVIDER: str = "gemini"
+    AI_MODEL: str = "gemini-1.5-flash"
+    AI_API_KEY: str = ""
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",

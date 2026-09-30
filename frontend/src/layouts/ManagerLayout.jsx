@@ -3,7 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
-import { LayoutDashboard, Store, Package, LayoutTemplate, ClipboardCheck, Users, BrainCircuit, LogOut } from 'lucide-react';
+import { LayoutDashboard, Store, Package, LayoutTemplate, ClipboardCheck, Users, BrainCircuit, LogOut, Sun, Moon } from 'lucide-react';
 import styles from './ManagerLayout.module.css';
 
 const ManagerLayout = () => {
@@ -14,7 +14,7 @@ const ManagerLayout = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const navItems = [
@@ -63,8 +63,12 @@ const ManagerLayout = () => {
       <main className={styles.main}>
         <header className={styles.header}>
           <h1>{navItems.find(item => location.pathname === item.path || (item.path !== '/manager' && location.pathname.startsWith(item.path)))?.name || 'Dashboard'}</h1>
-          <button onClick={toggleTheme} className={styles.themeToggleBtn}>
-            {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          <button 
+            onClick={toggleTheme} 
+            className={styles.themeToggleBtn}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
+            {isDarkMode ? <><Sun size={16} /> Light Mode</> : <><Moon size={16} /> Dark Mode</>}
           </button>
         </header>
         <div className={styles.content}>

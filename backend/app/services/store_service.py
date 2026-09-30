@@ -48,13 +48,31 @@ def create_store(
     code: str,
     name: str,
     address: str | None = None,
+    pincode: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    landmark: str | None = None,
+    address_details: str | None = None,
 ) -> Store:
-    """Create a new store. Raises ValueError on duplicate code."""
+
     store = Store(
         organization_id=organization_id,
         code=code.strip(),
         name=name.strip(),
+
         address=address.strip() if address else None,
+        pincode=pincode.strip() if pincode else None,
+
+        latitude=latitude,
+        longitude=longitude,
+
+        landmark=landmark.strip() if landmark else None,
+        address_details=(
+            address_details.strip()
+            if address_details
+            else None
+        ),
+
         status=StoreStatus.ACTIVE,
     )
 
@@ -62,13 +80,16 @@ def create_store(
 
     try:
         db.commit()
+
     except IntegrityError:
         db.rollback()
+
         raise ValueError(
             f"A store with code '{code}' already exists in your organization."
         )
 
     db.refresh(store)
+
     return store
 
 
@@ -78,19 +99,46 @@ def update_store(
     organization_id: UUID,
     name: str | None = None,
     address: str | None = None,
+    pincode: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    landmark: str | None = None,
+    address_details: str | None = None,
 ) -> Store | None:
-    """Update store metadata. Returns None if not found."""
-    store = get_store(db, store_id, organization_id)
+
+    store = get_store(
+        db,
+        store_id,
+        organization_id,
+    )
+
     if not store:
         return None
 
     if name is not None:
         store.name = name.strip()
+
     if address is not None:
         store.address = address.strip()
 
+    if pincode is not None:
+        store.pincode = pincode.strip()
+
+    if latitude is not None:
+        store.latitude = latitude
+
+    if longitude is not None:
+        store.longitude = longitude
+
+    if landmark is not None:
+        store.landmark = landmark.strip()
+
+    if address_details is not None:
+        store.address_details = address_details.strip()
+
     db.commit()
     db.refresh(store)
+
     return store
 
 
@@ -109,3 +157,17 @@ def update_store_status(
     db.commit()
     db.refresh(store)
     return store
+
+def delete_store(
+    db: Session,
+    store_id: UUID,
+    organization_id: UUID,
+) -> bool:
+    """Hard delete a store."""
+    store = get_store(db, store_id, organization_id)
+    if not store:
+        return False
+        
+    db.delete(store)
+    db.commit()
+    return True
