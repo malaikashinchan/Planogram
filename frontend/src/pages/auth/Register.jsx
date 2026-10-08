@@ -7,6 +7,7 @@ import ErrorMessage from '../../components/ErrorMessage/ErrorMessage';
 import styles from './Auth.module.css';
 
 const Register = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -30,7 +31,10 @@ const Register = () => {
 
     try {
       const data = await authService.register(formData);
-      setSuccess(data.message);
+      setSuccess(data.message + " Redirecting to login...");
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed.');
     } finally {
