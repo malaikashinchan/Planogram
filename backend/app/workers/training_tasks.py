@@ -5,12 +5,6 @@ from uuid import UUID
 import os
 import io
 import time
-import torch
-import torch.nn as nn
-from PIL import Image
-from torchvision import transforms
-import numpy as np
-
 from backend.app.core.database import SessionLocal
 from backend.app.core.config import settings
 from backend.app.workers.celery_app import celery_app
@@ -19,29 +13,32 @@ from backend.app.models.review import MLTrainingSample, SampleStatus
 from backend.app.models.product import Product
 from backend.app.services.storage_service import storage
 
-# We reuse the same model architecture from Phase 6
-import torchvision.models as models
-
-class EmbeddingNet(nn.Module):
-    def __init__(self):
-        super(EmbeddingNet, self).__init__()
-        resnet = models.resnet50(weights=None)
-        self.features = nn.Sequential(*list(resnet.children())[:-1])
-        self.embedding = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(2048, 2048)
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = self.embedding(x)
-        return nn.functional.normalize(x, p=2, dim=1)
-
 @celery_app.task(bind=True, max_retries=1)
 def launch_training_task(self):
     """
     Background task to fine-tune the Recognition Model.
     """
+    import torch
+    import torch.nn as nn
+    from PIL import Image
+    from torchvision import transforms, models
+    import numpy as np
+    
+    class EmbeddingNet(nn.Module):
+        def __init__(self):
+            super(EmbeddingNet, self).__init__()
+            resnet = models.resnet50(weights=None)
+            self.features = nn.Sequential(*list(resnet.children())[:-1])
+            self.embedding = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(2048, 2048)
+            )
+
+        def forward(self, x):
+            x = self.features(x)
+            x = self.embedding(x)
+            return nn.functional.normalize(x, p=2, dim=1)
+
     db = SessionLocal()
     try:
         # Check if already training

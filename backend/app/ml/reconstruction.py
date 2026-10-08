@@ -1,5 +1,4 @@
-import numpy as np
-from sklearn.cluster import DBSCAN
+# Lazy imports inside reconstruct_shelf
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,6 +26,9 @@ def reconstruct_shelf(detections: list[dict], recognitions: list[dict]) -> list[
     """
     if not detections or not recognitions:
         return []
+
+    import numpy as np
+    from sklearn.cluster import DBSCAN
 
     boxes = []
     # Combine detections and recognitions
