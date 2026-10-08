@@ -11,6 +11,11 @@ const auditService = {
     return response.data;
   },
 
+  reprocessAudit: async (id) => {
+    const response = await api.post(`/audits/${id}/reprocess`);
+    return response.data;
+  },
+
   createAudit: async (storeId, planogramId, file) => {
     const formData = new FormData();
     formData.append('store_id', storeId);

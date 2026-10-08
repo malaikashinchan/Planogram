@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.auth.dependencies import get_current_user
 from backend.app.core.database import get_db
-from backend.app.models import User
+from backend.app.models import User, ProcessingJob, JobStatus, AuditStatus
 from backend.app.schemas.audit import (
     AuditDetailResponse,
     AuditResponse,
@@ -23,7 +23,7 @@ from backend.app.schemas.audit import (
 )
 from backend.app.services import audit_service
 from backend.app.workers.tasks import process_audit_task
-
+from backend.app.workers.celery_app import celery_app
 
 router = APIRouter(prefix="/audits", tags=["Audits"])
 
@@ -204,3 +204,26 @@ def get_audit_reviews(
         raise HTTPException(status_code=404, detail="Audit not found")
         
     return audit_service.get_audit_reviews(db, audit_id)
+
+@router.post("/{audit_id}/reprocess")
+def reprocess_audit(
+    audit_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    audit = audit_service.get_audit(db, audit_id, current_user.organization_id)
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit not found")
+        
+    job = db.query(ProcessingJob).filter(ProcessingJob.audit_id == audit.id).first()
+    if job:
+        job.status = JobStatus.QUEUED
+    
+    audit.status = AuditStatus.QUEUED
+    db.commit()
+
+    celery_app.send_task(
+        "backend.app.workers.tasks.reprocess_audit_task",
+        args=[str(audit.id)]
+    )
+    return {"message": "Audit sent for reprocessing."}

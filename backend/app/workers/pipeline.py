@@ -165,7 +165,7 @@ def process_audit_pipeline(audit_id: UUID, job_id: UUID):
                     
                     # Store & Forward Pattern: Save to local disk first
                     import os
-                    from backend.app.core.config import settings
+                    # use global settings
                     from backend.app.workers.tasks import upload_to_s3_retry_task
                     
                     local_dir = settings.PROJECT_ROOT / "outputs" / "local_s3" / "human_reviews"
@@ -273,7 +273,7 @@ def process_audit_pipeline(audit_id: UUID, job_id: UUID):
         db.rollback()
         # Handle failure
         job = db.query(ProcessingJob).filter(ProcessingJob.id == job_id).first()
-        audit = db.query(Audit).filter(Audit.id == audit_id).first()
+        audit = db.query(ShelfAudit).filter(ShelfAudit.id == audit_id).first()
         if job:
             job.status = JobStatus.FAILED
             job.error_message = str(e)

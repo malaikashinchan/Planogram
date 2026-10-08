@@ -204,7 +204,7 @@ const Reviews = () => {
                   variant="outline"
                   onClick={() => {
                     const event = new CustomEvent('trigger-assistant-explanation', { 
-                      detail: `Why does this product require human review? Predicted product is ${getProductName(selectedReview.predicted_product_id)} and the similarity is ${selectedReview.predicted_similarity?.toFixed(2) || 'N/A'}.` 
+                      detail: `Why does this product require human review? The review ID is ${selectedReview.id}. Predicted product is ${getProductName(selectedReview.predicted_product_id)} and the similarity is ${selectedReview.predicted_similarity?.toFixed(2) || 'N/A'}.` 
                     });
                     window.dispatchEvent(event);
                   }}

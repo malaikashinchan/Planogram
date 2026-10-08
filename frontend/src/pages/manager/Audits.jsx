@@ -27,6 +27,22 @@ const Audits = () => {
     fetchAudits();
   }, []);
 
+  const handleReprocess = async (auditId) => {
+    if (!window.confirm("Are you sure you want to reprocess this audit?")) return;
+    try {
+      await auditService.reprocessAudit(auditId);
+      alert("Audit sent for reprocessing.");
+      // Refresh the list
+      setLoading(true);
+      const data = await auditService.getAudits();
+      setAudits(data);
+    } catch (err) {
+      alert("Failed to reprocess audit.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'COMPLETED': return <Badge variant="success">COMPLETED</Badge>;
@@ -73,13 +89,21 @@ const Audits = () => {
                       ? `${(audit.compliance_score * 100).toFixed(1)}%` 
                       : '-'}
                   </td>
-                  <td>
+                  <td style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <button 
                       onClick={() => navigate(`/manager/audits/${audit.id}`)}
                       style={{ color: '#007bff', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
                       View Details
                     </button>
+                    {(audit.status === 'FAILED' || audit.status === 'PROCESSING' || audit.status === 'QUEUED') && (
+                      <button 
+                        onClick={() => handleReprocess(audit.id)}
+                        style={{ color: '#ff9800', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                      >
+                        Reprocess
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
