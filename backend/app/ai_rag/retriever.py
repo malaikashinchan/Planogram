@@ -1,6 +1,5 @@
 import os
 import json
-import faiss
 import numpy as np
 from backend.app.ai_rag.embeddings import get_embedding
 
@@ -12,6 +11,7 @@ _metadata = None
 def load_index_if_needed():
     global _index, _metadata
     if _index is None:
+        import faiss
         index_path = os.path.join(INDEX_DIR, "knowledge.faiss")
         metadata_path = os.path.join(INDEX_DIR, "metadata.json")
         
