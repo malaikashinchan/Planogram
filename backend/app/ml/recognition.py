@@ -165,23 +165,24 @@ class ProductRecognizer:
 
 # ── Global Singleton for Celery Worker ──
 
-try:
-    from backend.app.core.config import settings
-    _recognizer_instance = ProductRecognizer(
-        settings.RESNET_MODEL_PATH,
-        settings.REFERENCE_EMBEDDINGS_PATH,
-        settings.REFERENCE_LABELS_PATH
-    )
-except Exception as e:
-    logger.error(f"Failed to load Recognizer components: {e}")
-    _recognizer_instance = None
+_recognizer_instance = None
 
 
 def run_recognition(image_bytes: bytes, detections: list[dict]) -> list[dict]:
     """
     Entry point for the ML pipeline. Uses the singleton recognizer.
     """
+    global _recognizer_instance
     if not _recognizer_instance:
-        raise RuntimeError("Recognizer was not initialized successfully.")
+        try:
+            from backend.app.core.config import settings
+            _recognizer_instance = ProductRecognizer(
+                settings.RESNET_MODEL_PATH,
+                settings.REFERENCE_EMBEDDINGS_PATH,
+                settings.REFERENCE_LABELS_PATH
+            )
+        except Exception as e:
+            logger.error(f"Failed to load Recognizer components: {e}")
+            raise RuntimeError(f"Recognizer was not initialized successfully: {e}")
     
     return _recognizer_instance.recognize(image_bytes, detections)

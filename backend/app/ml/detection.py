@@ -61,20 +61,20 @@ class ProductDetector:
 # ── Global Singleton for Celery Worker ──
 # This ensures the model is loaded only once when the worker imports this module.
 
-try:
-    from backend.app.core.config import settings
-    _detector_instance = ProductDetector(settings.YOLO_MODEL_PATH)
-except Exception as e:
-    logger.error(f"Failed to load YOLO model: {e}")
-    # Don't crash the whole import if running outside Celery (e.g. tests)
-    _detector_instance = None
+_detector_instance = None
 
 
 def run_yolo_detection(image_bytes: bytes) -> list[dict]:
     """
     Entry point for the ML pipeline. Uses the singleton detector.
     """
+    global _detector_instance
     if not _detector_instance:
-        raise RuntimeError("YOLO detector was not initialized successfully.")
+        try:
+            from backend.app.core.config import settings
+            _detector_instance = ProductDetector(settings.YOLO_MODEL_PATH)
+        except Exception as e:
+            logger.error(f"Failed to load YOLO model: {e}")
+            raise RuntimeError(f"YOLO detector was not initialized successfully: {e}")
     
     return _detector_instance.detect(image_bytes)
