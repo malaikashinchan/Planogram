@@ -35,6 +35,7 @@ def _send_email(to_email: str, subject: str, html_body: str) -> None:
     except Exception as exc:
         # Log but don't crash the API — email failure shouldn't block registration
         print(f"❌ Failed to send email to {to_email}: {exc}")
+        print(f"⚠️ RENDER FREE TIER FALLBACK - Use this link manually: {html_body.split('href=\"')[1].split('\"')[0] if 'href=\"' in html_body else 'No link found'}")
 
 
 def send_verification_email(email: str, token: str) -> None:
