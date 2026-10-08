@@ -1,8 +1,5 @@
 import logging
-import cv2
-import numpy as np
 from pathlib import Path
-from ultralytics import YOLO
 import sys
 
 logger = logging.getLogger(__name__)
@@ -14,6 +11,8 @@ class ProductDetector:
             raise FileNotFoundError(f"YOLO weights not found at: {self.model_path}")
         
         logger.info(f"Loading YOLO model from {self.model_path}")
+        # Lazy import to save memory on API server
+        from ultralytics import YOLO
         self.model = YOLO(str(self.model_path))
 
     def detect(self, image_data, conf_threshold: float = 0.25) -> list[dict]:
@@ -23,6 +22,8 @@ class ProductDetector:
         """
         # If image_data is bytes, decode it
         if isinstance(image_data, bytes):
+            import cv2
+            import numpy as np
             np_arr = np.frombuffer(image_data, np.uint8)
             img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             if img is None:

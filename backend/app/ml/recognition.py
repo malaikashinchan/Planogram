@@ -1,35 +1,8 @@
 import logging
-import cv2
 import json
-import numpy as np
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-
-TRANSFORM = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
-
-class EmbeddingNet(nn.Module):
-    def __init__(self):
-        super(EmbeddingNet, self).__init__()
-        resnet = models.resnet50(weights=None)
-        self.backbone = nn.Sequential(*list(resnet.children())[:-1])
-
-    def forward(self, x):
-        x = self.backbone(x)
-        x = x.squeeze(-1).squeeze(-1)
-        x = nn.functional.normalize(x, p=2, dim=1)
-        return x
-
 
 class ProductRecognizer:
     def __init__(
@@ -48,13 +21,42 @@ class ProductRecognizer:
             raise FileNotFoundError(f"Reference embeddings not found at: {ref_embeddings_path}")
         if not ref_labels_path.exists():
             raise FileNotFoundError(f"Reference labels not found at: {ref_labels_path}")
+            
+        logger.info(f"Loading ResNet50 Metric model from {model_path}")
+        
+        # Lazy imports for memory efficiency on API server
+        import torch
+        import torch.nn as nn
+        from torchvision import models, transforms
+        import numpy as np
 
-        logger.info(f"Loading Triplet-Loss ResNet50 backbone from {model_path}")
+        class EmbeddingNet(nn.Module):
+            def __init__(self):
+                super(EmbeddingNet, self).__init__()
+                resnet = models.resnet50(weights=None)
+                self.backbone = nn.Sequential(*list(resnet.children())[:-1])
+
+            def forward(self, x):
+                x = self.backbone(x)
+                x = x.squeeze(-1).squeeze(-1)
+                x = nn.functional.normalize(x, p=2, dim=1)
+                return x
+
+        self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+        self.transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+        
         self.model = EmbeddingNet()
-        state_dict = torch.load(str(model_path), map_location=DEVICE, weights_only=True)
+        state_dict = torch.load(str(model_path), map_location=self.device)
+        if "model_state_dict" in state_dict:
+            state_dict = state_dict["model_state_dict"]
         self.model.load_state_dict(state_dict)
         self.model.eval()
-        self.model.to(DEVICE)
+        self.model.to(self.device)
         
         logger.info(f"Loading reference embeddings and labels")
         self.ref_embeddings = np.load(str(ref_embeddings_path))
@@ -69,6 +71,10 @@ class ProductRecognizer:
         """
         if not detections:
             return []
+
+        import cv2
+        import numpy as np
+        import torch
 
         # Decode image if bytes
         if isinstance(image_data, bytes):
@@ -96,57 +102,44 @@ class ProductRecognizer:
                 continue
                 
             crop = img[y1:y2, x1:x2]
+            
+            # Convert BGR to RGB for torchvision
             crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-            try:
-                tensors.append(TRANSFORM(crop_rgb))
-                valid_indices.append(i)
-            except Exception as e:
-                logger.warning(f"Failed to transform crop {i}: {e}")
-                continue
-                
+            tensor = self.transform(crop_rgb)
+            tensors.append(tensor)
+            valid_indices.append(i)
+            
         if not tensors:
             return []
 
-        all_embeddings = []
-        # Process in batches
-        for batch_start in range(0, len(tensors), batch_size):
-            batch_end = min(batch_start + batch_size, len(tensors))
-            batch_tensors = tensors[batch_start:batch_end]
-            batch_input = torch.stack(batch_tensors).to(DEVICE)
-            
-            with torch.no_grad():
-                features = self.model(batch_input)
-            
-            all_embeddings.append(features.cpu().numpy())
-            
-        query_embeddings = np.vstack(all_embeddings)
+        all_embs = []
+        with torch.no_grad():
+            for i in range(0, len(tensors), batch_size):
+                batch = torch.stack(tensors[i:i+batch_size]).to(self.device)
+                embs = self.model(batch)
+                all_embs.append(embs.cpu().numpy())
+                
+        query_embs = np.vstack(all_embs)
         
-        # Calculate similarity (numpy matrix multiplication)
-        sim_matrix = query_embeddings @ self.ref_embeddings.T
+        # Calculate similarity via dot product (L2 normalized)
+        sim_matrix = np.dot(query_embs, self.ref_embeddings.T)
         
         results = []
-        for q_idx, sims in enumerate(sim_matrix):
-            original_det_idx = valid_indices[q_idx]
+        for idx, query_idx in enumerate(valid_indices):
+            original_det_idx = valid_indices[idx]
+            sims = sim_matrix[idx]
             
-            top_indices = np.argsort(sims)[::-1][:5]  # Top 5
+            # Group by class to find top matching class
+            class_sims = {}
+            for j, label in enumerate(self.ref_labels):
+                if label not in class_sims or sims[j] > class_sims[label]:
+                    class_sims[label] = sims[j]
+                    
+            sorted_brands = sorted(class_sims.items(), key=lambda x: x[1], reverse=True)
             
-            top_matches = []
-            for idx in top_indices:
-                ref = self.ref_labels[idx]
-                top_matches.append({
-                    "category": ref["category"],
-                    "similarity": float(sims[idx]),
-                })
-
-            brand_best = {}
-            for m in top_matches:
-                cat = m["category"]
-                if cat not in brand_best or m["similarity"] > brand_best[cat]:
-                    brand_best[cat] = m["similarity"]
-
-            sorted_brands = sorted(brand_best.items(), key=lambda x: -x[1])
             top1_cat = sorted_brands[0][0]
-            top1_sim = sorted_brands[0][1]
+            top1_sim = float(sorted_brands[0][1])
+            
             top2_sim = sorted_brands[1][1] if len(sorted_brands) > 1 else 0.0
             margin = top1_sim - top2_sim
             
